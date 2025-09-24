@@ -1,3 +1,9 @@
 *.vsix
 dist/
 lib/
+
+tmp/
+ref/
+AGENTS.md
+GEMINI.md
+
