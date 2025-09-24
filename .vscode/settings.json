@@ -1,0 +1,12 @@
+{
+    "[typescript]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features",
+        "editor.formatOnSave": true,
+    },
+    "[javascript]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features",
+        "editor.formatOnSave": true,
+    },
+    "biome.enabled": false,
+    "npm.packageManager": "bun"
+}
