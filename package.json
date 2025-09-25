@@ -103,17 +103,22 @@
         "logo.png"
     ],
     "scripts": {
-        "build": "bunx --bun tsc && bun run bundle && bun run copy_lib.ts",
+        "build": "bunx --bun tsgo",
         "watch": "bunx --bun tsc --watch",
         "bundle": "esbuild src/extension.ts --bundle --external:vscode --platform=node --format=cjs --outfile=dist/extension.bundle.js --minify",
-        "package": "bunx --node vsce package"
+        "package": "bunx --node vsce package",
+        "check": "bun scripts/check.ts "
     },
     "dependencies": {
+        "@types/bun": "^1.2.22",
         "vscode-languageclient": "^9.0.1"
     },
     "devDependencies": {
         "@types/vscode": "^1.100.0",
+        "@typescript/native-preview": "^7.0.0-dev.20250924.1",
         "@vscode/vsce": "^3.6.0",
-        "esbuild": "^0.25.8"
+        "esbuild": "^0.25.8",
+        "oxlint": "^1.18.0",
+        "oxlint-tsgolint": "^0.2.0"
     }
 }

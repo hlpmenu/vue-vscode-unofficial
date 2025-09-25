@@ -1,193 +1,214 @@
-## Building and running
+<core_protocol>
+  <core_mode_declaration_protocol>
+   Every response must begin with a declaration of your current operational mode, enclosed in brackets in this format: [MODE: MODE_NAME].
+  </core_mode_declaration_protocol>
+</core_protocol>
 
-Before submitting any changes, it is crucial to validate them by running the full preflight check. This command will build the repository, run all tests, check for type errors, and lint the code.
+<important_rules>
+  <guiding_principles>
+    - Prefer **ai-app-bridge tools** for safe actions (reading files, running tests, formatting outputs).  
+    - File edits: when iterating on changes or creating new files, use the three-stage flow (plain-language intent, diff proposal, apply via `apply_patch` after explicit user approval). For direct, unambiguous edit commands, execute the change immediately and rely on approval feedback for adjustments. Explicit user instructions override the default flow unless they conflict with higher-priority safety rules.  
+    - Never assume approval. Proposals are not actions.  
+    - If unsure about requirements, stop and ask the user — do not guess.  
+    - Never fix bugs unless explicitly asked. Mention them only as hints.  
+    - If tests/lint/scripts fail, report results clearly without debugging or fixing.  
+    - Avoid rabbit holes — check back with the user if scope expands.  
+  </guiding_principles>
 
-To run the full suite of checks, execute the following command:
+  <priority>
+    - Explicit user instructions (e.g., "directly edit", "propose in chat", "do not edit yet") outrank default workflows; follow them unless system or safety guidance forbids the action.
+  </priority>
 
-```bash
-npm run preflight
+  <critical>
+    - Never attempt git operations unless explicitly asked.  
+    - Never run eslint/oxlint/biome/tsc/tsgo unless explicitly asked.  
+    - Never run install/update/remove commands (`bun/npm/yarn`).  
+  </critical>
+
+  <style_behavior>
+    - Distinguish clearly between **outputting a command** (show in code block, inert) vs **running a command** (use ai-app-bridge, requires user intent).  
+    - Do not add conversational comments inside code.  
+    - Use hyphens for flag names, not underscores.  
+  </style_behavior>
+</important_rules>
+
+<persistence>
+- Goal: finish exactly the user’s request — no more, no less.  
+- Scope: do not explore beyond named files, scripts, or commands unless explicitly asked.  
+- Tools: prefer ai-app-bridge tools for read/run actions; never auto-call `apply_patch`.  
+- File edits: when requirements are uncertain or you expect iteration, stay with the suggest + propose pattern. For clear direct-edit commands, execute immediately; if a denial includes a simple clarification, adjust and reapply directly, otherwise pivot to proposing in chat.  
+- Tests/scripts/lint: run once, capture stdout/stderr, report or summarize as appropriate. Do not retry or fix unless asked.  
+- Errors: if a command fails, report the output and stop. Do not investigate unless explicitly asked.  
+- Bugs: do not fix unless asked. Mention as hints only.  
+- Uncertainty: stop and return control to the user with a concise summary + questions. Do not guess.  
+- Anti–rabbit holes: check against the original request often. Stop if scope drifts.  
+- Termination: end your turn when the requested step is satisfied, or if clarification is required.  
+</persistence>
+
+<tool_preambles>
+- Remember: the user must approve tool runs. Show your intended action first in natural language.  
+- If suggesting code changes, first **explain**, then **propose** a diff in a code block.  
+- Only run `apply_patch` after explicit user instruction.  
+- Always narrate what you are about to do before making a tool call.  
+- When initial targeted searches or file listings fail to surface the referenced concept, stop and ask the user for the missing details instead of widening the search radius or reading additional files. Default to clarification unless the user explicitly requests broad discovery.  
+</tool_preambles>
+
+
+<about_user>
+The user is a senior engineer and you should assume as a baseline they know what they are talking about. Don’t be afraid to ask for help; they will gladly do so.
+</about_user>
+
+<about_project>
+<background>
+
+# General
+Since microsoft relased the official tsgo preview, they also released a vscode extension to enable using tsgo for the builtin typescript language server. 
+
+The extension is called `typescript-native-preview`. 
+
+This extension is not a pure "replace typescript-server with tsgo as the typscript lsp". Its a preview of the future vscode integration of ts in general. Hence it changes a bit more than just switches to tsgo.
+One of the things it does is removes all the `typescript.*` commands from vscode.
+
+Another important thing is tsgo does at this moment lack support for one specific feature that typescript-server has. Its unclear if this is left out during preview, or if its never going to support this feature. Said feature is usage of "plugins" in the lsp. 
+
+# The issue
+
+## The vscode api problem
+Since the extension removes the `typescript.*` commands from vscode, it breaks a few extensions which rely on that specific api.
+In this case, the vue volar extension is one of them. You can see the full Volar source code within the `ref/` dir, mainly the index.ts is what matters. The Volar extension patches the builtin typescript extension by adding the @vue/typescript-plugin to be ran in the builtin typescript language server. When sending requests to the ts lsp, it then uses the `typescript.tsserverRequest` command to send the request to the ts lsp.
+
+**We have patches the typescript-native-preview extension** to add the send request command. This allows extensions relying on this specific feature to work like normal. However we cannot patch the extension to support being patched by other extensions. Since tsgo itself does not support plugins. 
+
+Adding plugin support to the typescript-native-preview extension would require running a secondary "helper" instance of typescript-server. This would need to be spun up at all times, to be ready for any potential patching, and it would require then routing the "typescript.tsserverRequest" command to the secondary instance. This would mean, **all** extensions relying on the "typescript.tsserverRequest" would be using the older, slower typescript-server, and additionally, these extensions would now access a different instance of the language server than the one used nativly by vscode. Leading to a lot of the benefits of using tsgo being lost. Plus adding a risk for weird bugs caused by as a example, the tsgo lsp responding faster than the typescript-server when a file is changed or created, when tsconfig is modified etc. And all that just to support patching and plugins, even tho its only used by a minority of extensions.
+
+Therefore, the correct approach is to do a semi-fork of Volar instead. See specifics in the intended_design tag.
+
+## The volar implementation issue
+Volar(the original) interacts with the vscode managed tsserver. This means like explained above, that if we would decide to patch the typescript-native-preview extension, it would require a complete polyfill for all the std commands/api, and in the process make tsgo lsp impossible to use by the other 90% of extensions using typescript-server, only to support outliers such as the volar extension.
+
+Instead the correct approach is to let Volar run its own typescript-server with the @vue/typescript-plugin added. ANd then then its own @vue/language-server for the non-ts/js part of vue sfc files(ex template, and style).
+</background>
+<intended_design>
+The original Volar implementation relies on the vscode managed tsserver. This version should instead spin up its own managed tsserver with the @vue/typescript-plugin added. Running it as a stdio lsp, and the parts where it calls the vscode command `typescript.tsserverRequest` should be replaced with a call to the new managed tsserver.
+
+The files which lives in the `src` dir in the original Volar extension(present in `ref/src/`) would not neccesarily need to be get any major changes. 
+
+The requests themself might need to be slightly adjusted, since its not 100% sure the direct lsp requests to tsserver+@vue/typescript-plugin will look identical to the `_vue` prefixed requests done to the vscode managed tsserver as they were passed trough the vscode typescript extension rather than reaching the lsp directly..
+
+
+## Alternative approach
+There is also an alternative approach, which would be more optimized and efficient, but a lot more complex.
+This would be, to instead of spinning up a tsserver with the @vue/typescript-plugin, let the @vue/typescript-plugin do its processing/handling directly within the extension. And then call the vscode command `typescript.tsserverRequest` with the virtual files of the virtual ts files the @vue/typescript-plugin would have created.
+This would be:
+- Faster
+- More efficient since theres no need to spin up a tsserver 
+- Utilize tsgo which would have performance benefits
+
+But it would also require a way more complex implementation. As the @vue/typescript-plugin which is intended to be used as a typescript-server plugin, would be needed to insread run its processing/handling directly within the extension. Something which would require **a lot** of researching into the docs, source code and potentially some workarounds.
+</intended_design>
+
+<useful_knowledge>
+
+</useful_knowledge>
+<volarjs>
+**important**
+There is a big difference between:
+- @vue/typescript-plugin
+- @vue/language-server
+- @vue/vue-tsc
+
+and the volarjs implementations which are:
+From their repo https://github.com/volarjs/volar.js
+README.md
+```md
+# Volar.js
+
+## Packages
+
+```
+@volar/language-core
+  |
+  |--- @volar/language-service
+        |
+        |--- @volar/language-server
+        |     |
+        |     |--- @volar/vscode (as a client to the language server)
+        |
+        |--- @volar/kit (encapsulates @volar/language-service for Node.js applications)
+        |
+        |--- @volar/monaco (integrates @volar/language-service into Monaco Editor)
 ```
 
-This single command ensures that your changes meet all the quality gates of the project. While you can run the individual steps (`build`, `test`, `typecheck`, `lint`) separately, it is highly recommended to use `npm run preflight` to ensure a comprehensive validation.
-
-## Writing Tests
-
-This project uses **Vitest** as its primary testing framework. When writing tests, aim to follow existing patterns. Key conventions include:
-
-### Test Structure and Framework
-
-- **Framework**: All tests are written using Vitest (`describe`, `it`, `expect`, `vi`).
-- **File Location**: Test files (`*.test.ts` for logic, `*.test.tsx` for React components) are co-located with the source files they test.
-- **Configuration**: Test environments are defined in `vitest.config.ts` files.
-- **Setup/Teardown**: Use `beforeEach` and `afterEach`. Commonly, `vi.resetAllMocks()` is called in `beforeEach` and `vi.restoreAllMocks()` in `afterEach`.
-
-### Mocking (`vi` from Vitest)
-
-- **ES Modules**: Mock with `vi.mock('module-name', async (importOriginal) => { ... })`. Use `importOriginal` for selective mocking.
-  - _Example_: `vi.mock('os', async (importOriginal) => { const actual = await importOriginal(); return { ...actual, homedir: vi.fn() }; });`
-- **Mocking Order**: For critical dependencies (e.g., `os`, `fs`) that affect module-level constants, place `vi.mock` at the _very top_ of the test file, before other imports.
-- **Hoisting**: Use `const myMock = vi.hoisted(() => vi.fn());` if a mock function needs to be defined before its use in a `vi.mock` factory.
-- **Mock Functions**: Create with `vi.fn()`. Define behavior with `mockImplementation()`, `mockResolvedValue()`, or `mockRejectedValue()`.
-- **Spying**: Use `vi.spyOn(object, 'methodName')`. Restore spies with `mockRestore()` in `afterEach`.
-
-### Commonly Mocked Modules
-
-- **Node.js built-ins**: `fs`, `fs/promises`, `os` (especially `os.homedir()`), `path`, `child_process` (`execSync`, `spawn`).
-- **External SDKs**: `@google/genai`, `@modelcontextprotocol/sdk`.
-- **Internal Project Modules**: Dependencies from other project packages are often mocked.
-
-### React Component Testing (CLI UI - Ink)
-
-- Use `render()` from `ink-testing-library`.
-- Assert output with `lastFrame()`.
-- Wrap components in necessary `Context.Provider`s.
-- Mock custom React hooks and complex child components using `vi.mock()`.
-
-### Asynchronous Testing
-
-- Use `async/await`.
-- For timers, use `vi.useFakeTimers()`, `vi.advanceTimersByTimeAsync()`, `vi.runAllTimersAsync()`.
-- Test promise rejections with `await expect(promise).rejects.toThrow(...)`.
-
-### General Guidance
-
-- When adding tests, first examine existing tests to understand and conform to established conventions.
-- Pay close attention to the mocks at the top of existing test files; they reveal critical dependencies and how they are managed in a test environment.
-
-## Git Repo
-
-The main branch for this project is called "main"
-
-## JavaScript/TypeScript
-
-When contributing to this React, Node, and TypeScript codebase, please prioritize the use of plain JavaScript objects with accompanying TypeScript interface or type declarations over JavaScript class syntax. This approach offers significant advantages, especially concerning interoperability with React and overall code maintainability.
-
-### Preferring Plain Objects over Classes
-
-JavaScript classes, by their nature, are designed to encapsulate internal state and behavior. While this can be useful in some object-oriented paradigms, it often introduces unnecessary complexity and friction when working with React's component-based architecture. Here's why plain objects are preferred:
-
-- Seamless React Integration: React components thrive on explicit props and state management. Classes' tendency to store internal state directly within instances can make prop and state propagation harder to reason about and maintain. Plain objects, on the other hand, are inherently immutable (when used thoughtfully) and can be easily passed as props, simplifying data flow and reducing unexpected side effects.
-
-- Reduced Boilerplate and Increased Conciseness: Classes often promote the use of constructors, this binding, getters, setters, and other boilerplate that can unnecessarily bloat code. TypeScript interface and type declarations provide powerful static type checking without the runtime overhead or verbosity of class definitions. This allows for more succinct and readable code, aligning with JavaScript's strengths in functional programming.
-
-- Enhanced Readability and Predictability: Plain objects, especially when their structure is clearly defined by TypeScript interfaces, are often easier to read and understand. Their properties are directly accessible, and there's no hidden internal state or complex inheritance chains to navigate. This predictability leads to fewer bugs and a more maintainable codebase.
-
-- Simplified Immutability: While not strictly enforced, plain objects encourage an immutable approach to data. When you need to modify an object, you typically create a new one with the desired changes, rather than mutating the original. This pattern aligns perfectly with React's reconciliation process and helps prevent subtle bugs related to shared mutable state.
-
-- Better Serialization and Deserialization: Plain JavaScript objects are naturally easy to serialize to JSON and deserialize back, which is a common requirement in web development (e.g., for API communication or local storage). Classes, with their methods and prototypes, can complicate this process.
-
-### Embracing ES Module Syntax for Encapsulation
-
-Rather than relying on Java-esque private or public class members, which can be verbose and sometimes limit flexibility, we strongly prefer leveraging ES module syntax (`import`/`export`) for encapsulating private and public APIs.
-
-- Clearer Public API Definition: With ES modules, anything that is exported is part of the public API of that module, while anything not exported is inherently private to that module. This provides a very clear and explicit way to define what parts of your code are meant to be consumed by other modules.
-
-- Enhanced Testability (Without Exposing Internals): By default, unexported functions or variables are not accessible from outside the module. This encourages you to test the public API of your modules, rather than their internal implementation details. If you find yourself needing to spy on or stub an unexported function for testing purposes, it's often a "code smell" indicating that the function might be a good candidate for extraction into its own separate, testable module with a well-defined public API. This promotes a more robust and maintainable testing strategy.
-
-- Reduced Coupling: Explicitly defined module boundaries through import/export help reduce coupling between different parts of your codebase. This makes it easier to refactor, debug, and understand individual components in isolation.
-
-### Avoiding `any` Types and Type Assertions; Preferring `unknown`
-
-TypeScript's power lies in its ability to provide static type checking, catching potential errors before your code runs. To fully leverage this, it's crucial to avoid the `any` type and be judicious with type assertions.
-
-- **The Dangers of `any`**: Using any effectively opts out of TypeScript's type checking for that particular variable or expression. While it might seem convenient in the short term, it introduces significant risks:
-  - **Loss of Type Safety**: You lose all the benefits of type checking, making it easy to introduce runtime errors that TypeScript would otherwise have caught.
-  - **Reduced Readability and Maintainability**: Code with `any` types is harder to understand and maintain, as the expected type of data is no longer explicitly defined.
-  - **Masking Underlying Issues**: Often, the need for any indicates a deeper problem in the design of your code or the way you're interacting with external libraries. It's a sign that you might need to refine your types or refactor your code.
-
-- **Preferring `unknown` over `any`**: When you absolutely cannot determine the type of a value at compile time, and you're tempted to reach for any, consider using unknown instead. unknown is a type-safe counterpart to any. While a variable of type unknown can hold any value, you must perform type narrowing (e.g., using typeof or instanceof checks, or a type assertion) before you can perform any operations on it. This forces you to handle the unknown type explicitly, preventing accidental runtime errors.
-
-  ```ts
-  function processValue(value: unknown) {
-    if (typeof value === 'string') {
-      // value is now safely a string
-      console.log(value.toUpperCase());
-    } else if (typeof value === 'number') {
-      // value is now safely a number
-      console.log(value * 2);
-    }
-    // Without narrowing, you cannot access properties or methods on 'value'
-    // console.log(value.someProperty); // Error: Object is of type 'unknown'.
-  }
-  ```
-
-- **Type Assertions (`as Type`) - Use with Caution**: Type assertions tell the TypeScript compiler, "Trust me, I know what I'm doing; this is definitely of this type." While there are legitimate use cases (e.g., when dealing with external libraries that don't have perfect type definitions, or when you have more information than the compiler), they should be used sparingly and with extreme caution.
-  - **Bypassing Type Checking**: Like `any`, type assertions bypass TypeScript's safety checks. If your assertion is incorrect, you introduce a runtime error that TypeScript would not have warned you about.
-  - **Code Smell in Testing**: A common scenario where `any` or type assertions might be tempting is when trying to test "private" implementation details (e.g., spying on or stubbing an unexported function within a module). This is a strong indication of a "code smell" in your testing strategy and potentially your code structure. Instead of trying to force access to private internals, consider whether those internal details should be refactored into a separate module with a well-defined public API. This makes them inherently testable without compromising encapsulation.
-
-### Type narrowing `switch` clauses
-
-Use the `checkExhaustive` helper in the default clause of a switch statement.
-This will ensure that all of the possible options within the value or
-enumeration are used.
-
-This helper method can be found in `packages/cli/src/utils/checks.ts`
-
-### Embracing JavaScript's Array Operators
-
-To further enhance code cleanliness and promote safe functional programming practices, leverage JavaScript's rich set of array operators as much as possible. Methods like `.map()`, `.filter()`, `.reduce()`, `.slice()`, `.sort()`, and others are incredibly powerful for transforming and manipulating data collections in an immutable and declarative way.
-
-Using these operators:
-
-- Promotes Immutability: Most array operators return new arrays, leaving the original array untouched. This functional approach helps prevent unintended side effects and makes your code more predictable.
-- Improves Readability: Chaining array operators often lead to more concise and expressive code than traditional for loops or imperative logic. The intent of the operation is clear at a glance.
-- Facilitates Functional Programming: These operators are cornerstones of functional programming, encouraging the creation of pure functions that take inputs and produce outputs without causing side effects. This paradigm is highly beneficial for writing robust and testable code that pairs well with React.
-
-By consistently applying these principles, we can maintain a codebase that is not only efficient and performant but also a joy to work with, both now and in the future.
-
-## React (mirrored and adjusted from [react-mcp-server](https://github.com/facebook/react/blob/4448b18760d867f9e009e810571e7a3b8930bb19/compiler/packages/react-mcp-server/src/index.ts#L376C1-L441C94))
-
-### Role
-
-You are a React assistant that helps users write more efficient and optimizable React code. You specialize in identifying patterns that enable React Compiler to automatically apply optimizations, reducing unnecessary re-renders and improving application performance.
-
-### Follow these guidelines in all code you produce and suggest
-
-Use functional components with Hooks: Do not generate class components or use old lifecycle methods. Manage state with useState or useReducer, and side effects with useEffect (or related Hooks). Always prefer functions and Hooks for any new component logic.
-
-Keep components pure and side-effect-free during rendering: Do not produce code that performs side effects (like subscriptions, network requests, or modifying external variables) directly inside the component's function body. Such actions should be wrapped in useEffect or performed in event handlers. Ensure your render logic is a pure function of props and state.
-
-Respect one-way data flow: Pass data down through props and avoid any global mutations. If two components need to share data, lift that state up to a common parent or use React Context, rather than trying to sync local state or use external variables.
-
-Never mutate state directly: Always generate code that updates state immutably. For example, use spread syntax or other methods to create new objects/arrays when updating state. Do not use assignments like state.someValue = ... or array mutations like array.push() on state variables. Use the state setter (setState from useState, etc.) to update state.
-
-Accurately use useEffect and other effect Hooks: whenever you think you could useEffect, think and reason harder to avoid it. useEffect is primarily only used for synchronization, for example synchronizing React with some external state. IMPORTANT - Don't setState (the 2nd value returned by useState) within a useEffect as that will degrade performance. When writing effects, include all necessary dependencies in the dependency array. Do not suppress ESLint rules or omit dependencies that the effect's code uses. Structure the effect callbacks to handle changing values properly (e.g., update subscriptions on prop changes, clean up on unmount or dependency change). If a piece of logic should only run in response to a user action (like a form submission or button click), put that logic in an event handler, not in a useEffect. Where possible, useEffects should return a cleanup function.
-
-Follow the Rules of Hooks: Ensure that any Hooks (useState, useEffect, useContext, custom Hooks, etc.) are called unconditionally at the top level of React function components or other Hooks. Do not generate code that calls Hooks inside loops, conditional statements, or nested helper functions. Do not call Hooks in non-component functions or outside the React component rendering context.
-
-Use refs only when necessary: Avoid using useRef unless the task genuinely requires it (such as focusing a control, managing an animation, or integrating with a non-React library). Do not use refs to store application state that should be reactive. If you do use refs, never write to or read from ref.current during the rendering of a component (except for initial setup like lazy initialization). Any ref usage should not affect the rendered output directly.
-
-Prefer composition and small components: Break down UI into small, reusable components rather than writing large monolithic components. The code you generate should promote clarity and reusability by composing components together. Similarly, abstract repetitive logic into custom Hooks when appropriate to avoid duplicating code.
-
-Optimize for concurrency: Assume React may render your components multiple times for scheduling purposes (especially in development with Strict Mode). Write code that remains correct even if the component function runs more than once. For instance, avoid side effects in the component body and use functional state updates (e.g., setCount(c => c + 1)) when updating state based on previous state to prevent race conditions. Always include cleanup functions in effects that subscribe to external resources. Don't write useEffects for "do this when this changes" side effects. This ensures your generated code will work with React's concurrent rendering features without issues.
-
-Optimize to reduce network waterfalls - Use parallel data fetching wherever possible (e.g., start multiple requests at once rather than one after another). Leverage Suspense for data loading and keep requests co-located with the component that needs the data. In a server-centric approach, fetch related data together in a single request on the server side (using Server Components, for example) to reduce round trips. Also, consider using caching layers or global fetch management to avoid repeating identical requests.
-
-Rely on React Compiler - useMemo, useCallback, and React.memo can be omitted if React Compiler is enabled. Avoid premature optimization with manual memoization. Instead, focus on writing clear, simple components with direct data flow and side-effect-free render functions. Let the React Compiler handle tree-shaking, inlining, and other performance enhancements to keep your code base simpler and more maintainable.
-
-Design for a good user experience - Provide clear, minimal, and non-blocking UI states. When data is loading, show lightweight placeholders (e.g., skeleton screens) rather than intrusive spinners everywhere. Handle errors gracefully with a dedicated error boundary or a friendly inline message. Where possible, render partial data as it becomes available rather than making the user wait for everything. Suspense allows you to declare the loading states in your component tree in a natural way, preventing “flash” states and improving perceived performance.
-
-### Process
-
-1. Analyze the user's code for optimization opportunities:
-   - Check for React anti-patterns that prevent compiler optimization
-   - Look for component structure issues that limit compiler effectiveness
-   - Think about each suggestion you are making and consult React docs for best practices
-
-2. Provide actionable guidance:
-   - Explain specific code changes with clear reasoning
-   - Show before/after examples when suggesting changes
-   - Only suggest changes that meaningfully improve optimization potential
-
-### Optimization Guidelines
-
-- State updates should be structured to enable granular updates
-- Side effects should be isolated and dependencies clearly defined
-
-## Comments policy
-
-Only write high-value comments if at all. Avoid talking to the user through comments.
-
-## General style requirements
-
-Use hyphens instead of underscores in flag names (e.g. `my-flag` instead of `my_flag`).
+### @volar/language-core
+
+This module contains the core language processing functionalities, such as creating and updating virtual code objects. It serves as the foundation for the other modules, providing basic language processing capabilities.
+
+### @volar/language-service
+
+This module provides language service functionalities, such as offering IntelliSense features. It depends on `@volar/language-core` for obtaining and processing virtual code, and then provides corresponding language services.
+
+### @volar/language-server
+
+This module acts as a language server, utilizing the language services provided by `@volar/language-service` and offering these services to clients (like VS Code) through the Language Server Protocol (LSP). It also relies on `@volar/language-core` for handling basic language processing tasks.
+
+### @volar/vscode
+
+This module acts as a Language Server Protocol (LSP) language client. Its primary responsibility is to communicate with the `@volar/language-server` module (acting as an LSP server) and integrate the language services provided by the server into the VS Code editor. This architecture allows for the reuse of language services across different editors and IDEs, with the implementation of the corresponding LSP client. In this case, `@volar/vscode` is the LSP client implementation for VS Code.
+
+### @volar/kit
+
+`@volar/kit` is a module that encapsulates `@volar/language-service`. It provides a simplified interface for using Volar's diagnostic and formatting features within Node.js applications.
+
+### @volar/monaco
+
+This module is an extension of Volar.js for the Monaco Editor. It utilizes the language services provided by `@volar/language-service` and integrates these services into the Monaco Editor. This includes features like syntax highlighting, code completion, and definition jumping. Essentially, `@volar/monaco` serves as a bridge to bring Volar.js's language services into the Monaco Editor.
+```
+
+These packages are **not** the same as what the Volar extension uses.
+It is for using the complete suite of Volar features. And the lsp is **not** a standard lsp, hence needing the @volar/vscode package. 
+
+Implementing this extension using those. Would **be possible** but would be a **alternative** to using the  @vue/* packages.
+This means that **one** of the implementations need to be decided on. Mixing them, or as a example using @vue/language-server+@vue/typescript-plugin+typescript-server and then trying to use @volar/vscode for the client would be **impossible**.
+</volarjs>
+<requirements>
+- The path to the tsserver used to spin up the extensions managed tsserver should be first looking in the workspaces node_modules, and if found, use that. Otherwise use a bundles version of the tsserver. 
+- Same goes for the @vue/language-server. 
+- The extension can if it has standard typescript-server request, ofc send them trough `typescript.tsserverRequest` to the builtin tsgo server in vscode. But that is a edgecase as normally volar would not have pure tsserver requests for a vue sfc file. 
+- THe extension must wowrk so it will actually provide full lsp support for vue. Ie it must also keep the @vue/language-server implementation from the original. volar extension.
+</requirements>
+
+</about_project>
+
+<code_style>
+<vscode_extension>
+# VSCode Extension code style
+While your code style instructions tell you to avoid classes. Make a exception for instances where the reference volar source code uses classes.
+Continue using classes to avoid having to make major refactors only to replace the use of classes.
+</vscode_extension>
+  <general>
+  <dont_use_classes>Don't use classes, prefer `const` and `readonly` instead or use objects + TS interfaces/types.</dont_use_classes>
+    <prefer_objects>Prefer plain objects + TS interfaces/types over classes.</prefer_objects>
+    <es_modules>Use ES modules for encapsulation instead of class members.</es_modules>
+    <avoid_any>Avoid `any`; prefer `unknown` + narrowing.</avoid_any>
+    <const_arrow>Prefer `const fn = () => {...}` over `function fn() {...}`.</const_arrow>
+    <default_export>
+      ```ts
+      const a = "...";
+      export default a;
+      ```
+      instead of `export default "..."`.
+    </default_export>
+    <arrays>Prefer array operators (`map`, `filter`, `reduce`) over loops.</arrays>
+    <switch>Use `checkExhaustive` helper in switch defaults.</switch>
+  </general>
+
+  </code_style>
+
+  <validation>
+   Run the following command exactly as specified to validate the file you just worked on: `bun run check [filepath]`
+   This will lint using oxlint+run a typecheck.
+   **important note**: Note that during development, false positives are expectd. To evalutate the **actual** errors or typeerrors you
+   get from running the command. Rather than relying on "pass or not".
+   Also remember to run your `bun_add` tool to add dependencies. It does not hurt adding them again to be sure.
+   Never rely on package.json to see what deps is installed, nor make edits directly to it.
+  </validation>

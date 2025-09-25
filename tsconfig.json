@@ -1,18 +1,21 @@
 {
     "compilerOptions": {
-        "target": "es2020",
-        "module": "NodeNext",
-        "rootDir": "./src",
+        "target": "esnext",
+        "module": "esnext",
+        "rootDir": ".",
         "outDir": "./dist",
         "esModuleInterop": true,
         "strict": true,
         "skipLibCheck": true,
+        "moduleResolution": "bundler",
         "resolveJsonModule": true,
-        "sourceMap": true
+        "sourceMap": true,
+        "types": [ "@types/bun" ],
+        "lib": [ "esnext" ],
+
     },
-    "vueCompilerOptions": {
-        "lib": "vue",
-        "strictVModel": true
-    },
-    "include": [ "./src/**/*" ]
+    "typeAcquisition": { "enable": true },
+    "skipLibCheck": true,
+    "include": [ "src/**/*.ts", "src/**/*.js", "./index.ts" ],
+    "exclude": [ "node_modules/**", "dist", "**/*.min.js", "**/*.bundle.js", "ref/**" ]
 }
