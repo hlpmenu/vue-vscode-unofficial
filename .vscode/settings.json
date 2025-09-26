@@ -8,5 +8,6 @@
         "editor.formatOnSave": true,
     },
     "biome.enabled": false,
-    "npm.packageManager": "bun"
+    "npm.packageManager": "bun",
+    "typescript.experimental.useTsgo": true,
 }

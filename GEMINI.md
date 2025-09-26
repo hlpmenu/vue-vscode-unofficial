@@ -205,7 +205,7 @@ Continue using classes to avoid having to make major refactors only to replace t
   </code_style>
 
   <validation>
-   Run the following command exactly as specified to validate the file you just worked on: `bun run check [filepath]`
+   Run the following command exactly as specified to validate the file you just worked on: `bun run check`
    This will lint using oxlint+run a typecheck.
    **important note**: Note that during development, false positives are expectd. To evalutate the **actual** errors or typeerrors you
    get from running the command. Rather than relying on "pass or not".

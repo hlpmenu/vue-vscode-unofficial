@@ -1,6 +1,5 @@
 ref/codex-convo-dont-read.md
 .gitignore
-scripts/
 AGENTS.md
 README.md
 dist/
