@@ -9,6 +9,14 @@
   "engines": {
     "vscode": "^1.88.0"
   },
+    "scripts": {
+    "build": "bun run bundle",
+    "watch": "bun scripts/build.ts --watch",
+    "bundle": "bun scripts/build.ts",
+    "package": "bunx --node vsce package",
+    "check": "bun scripts/check.ts",
+    "test:tsserver": "cd test/tslsp2 && go run main.go"
+  },
   "activationEvents": [
     "onLanguage"
   ],
@@ -92,13 +100,6 @@
         "category": "Volar"
       }
     ]
-  },
-  "scripts": {
-    "build": "bun run bundle",
-    "watch": "bun scripts/build.ts --watch",
-    "bundle": "bun scripts/build.ts",
-    "package": "bunx --node vsce package",
-    "check": "bun scripts/check.ts"
   },
   "dependencies": {
     "@types/bun": "^1.2.22",
