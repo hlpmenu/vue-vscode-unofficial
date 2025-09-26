@@ -57,15 +57,6 @@ try {
     'utf8',
   );
 
-  // Create a folder shim so tsserver can discover the plugin by name
-  const pluginFolder = path.join('dist', 'vue-typescript-plugin');
-  await mkdir(pluginFolder, { recursive: true });
-  await writeFile(
-    path.join(pluginFolder, 'index.js'),
-    "module.exports = require('../ts-plugin.js');\n",
-    'utf8',
-  );
-
   console.log('Build successful!');
 
 } catch (error) {

@@ -1,117 +1,125 @@
 {
-    "name": "volar-vue-native",
-    "displayName": "Volar for Vue (Native TS)",
-    "description": "Vue language support using the native TypeScript server (tsgo).",
-    "version": "0.0.1",
-    "publisher": "TypeScriptTeam",
-    "private": true,
-    "type": "commonjs",
-    "engines": {
-        "vscode": "^1.88.0"
-    },
-    "activationEvents": [
-        "onLanguage"
+  "name": "volar-vue-native",
+  "displayName": "Volar for Vue (Native TS)",
+  "description": "Vue language support using the native TypeScript server (tsgo).",
+  "version": "0.0.1",
+  "publisher": "TypeScriptTeam",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "activationEvents": [
+    "onLanguage"
+  ],
+  "main": "./dist/extension.js",
+  "files": [
+    "dist",
+    "languages",
+    "schemas",
+    "syntaxes",
+    "LICENSE",
+    "NOTICES.txt"
+  ],
+  "contributes": {
+    "jsonValidation": [
+      {
+        "fileMatch": [
+          "tsconfig.json",
+          "tsconfig.*.json",
+          "jsconfig.json",
+          "jsconfig.*.json"
+        ],
+        "url": "./schemas/vue-tsconfig.schema.json"
+      }
     ],
-    "main": "./dist/extension.js",
-    "files": [
-        "dist",
-        "languages",
-        "schemas",
-        "syntaxes",
-        "LICENSE",
-        "NOTICES.txt"
+    "languages": [
+      {
+        "id": "vue",
+        "extensions": [
+          ".vue"
+        ],
+        "aliases": [
+          "Vue"
+        ],
+        "configuration": "./languages/vue-language-configuration.json"
+      }
     ],
-    "contributes": {
-        "jsonValidation": [
-            {
-                "fileMatch": [
-                    "tsconfig.json",
-                    "tsconfig.*.json",
-                    "jsconfig.json",
-                    "jsconfig.*.json"
-                ],
-                "url": "./schemas/vue-tsconfig.schema.json"
-            }
-        ],
-        "languages": [
-            {
-                "id": "vue",
-                "extensions": [
-                    ".vue"
-                ],
-                "aliases": [
-                    "Vue"
-                ],
-                "configuration": "./languages/vue-language-configuration.json"
-            }
-        ],
-        "grammars": [
-            {
-                "language": "vue",
-                "scopeName": "source.vue",
-                "path": "./syntaxes/vue.tmLanguage.json",
-                "embeddedLanguages": {
-                    "source.css": "css",
-                    "source.js": "javascript",
-                    "source.ts": "typescript",
-                    "text.html.derivative": "html"
-                }
-            }
-        ],
-        "configuration": {
-            "type": "object",
-            "title": "Volar for Vue (Native TS)",
-            "properties": {
-                "vue.trace.server": {
-                    "scope": "window",
-                    "type": "string",
-                    "enum": [
-                        "off",
-                        "messages",
-                        "verbose"
-                    ],
-                    "default": "off",
-                    "description": "Trace communication between VS Code and the Vue language server."
-                },
-                "vue.server.includeLanguages": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "default": [
-                        "vue"
-                    ],
-                    "description": "Languages to be handled by the Vue language server."
-                }
-            }
+    "grammars": [
+      {
+        "language": "vue",
+        "scopeName": "source.vue",
+        "path": "./syntaxes/vue.tmLanguage.json",
+        "embeddedLanguages": {
+          "source.css": "css",
+          "source.js": "javascript",
+          "source.ts": "typescript",
+          "text.html.derivative": "html"
+        }
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Volar for Vue (Native TS)",
+      "properties": {
+        "vue.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace communication between VS Code and the Vue language server."
         },
-        "commands": [
-            {
-                "command": "vue.action.restartServer",
-                "title": "Restart Vue Language Server",
-                "category": "Volar"
-            }
-        ]
+        "vue.server.includeLanguages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "vue"
+          ],
+          "description": "Languages to be handled by the Vue language server."
+        }
+      }
     },
-    "scripts": {
-        "build": "bun run bundle",
-        "watch": "bun scripts/build.ts --watch",
-        "bundle": "bun scripts/build.ts",
-        "package": "bunx --node vsce package",
-        "check": "bun scripts/check.ts"
-    },
-    "dependencies": {
-        "@types/bun": "^1.2.22",
-        "@vue/language-server": "^3.0.8",
-        "@vue/typescript-plugin": "^3.0.8",
-        "vscode-languageclient": "^9.0.1"
-    },
-    "devDependencies": {
-        "@types/vscode": "^1.100.0",
-        "@typescript/native-preview": "^7.0.0-dev.20250924.1",
-        "@vscode/vsce": "^3.6.0",
-        "esbuild": "^0.25.8",
-        "oxlint": "^1.18.0",
-        "oxlint-tsgolint": "^0.2.0"
-    }
+    "commands": [
+      {
+        "command": "vue.action.restartServer",
+        "title": "Restart Vue Language Server",
+        "category": "Volar"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "bun run bundle",
+    "watch": "bun scripts/build.ts --watch",
+    "bundle": "bun scripts/build.ts",
+    "package": "bunx --node vsce package",
+    "check": "bun scripts/check.ts"
+  },
+  "dependencies": {
+    "@types/bun": "^1.2.22",
+    "@vue/language-server": "^3.0.8",
+    "@vue/typescript-plugin": "^3.0.8",
+    "typescript": "^5.9.2",
+    "typescript-language-server": "^5.0.0",
+    "vscode-languageclient": "^9.0.1",
+    "vue": "^3.5.22",
+    "vue-typescript-plugin-pack": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@typescript/native-preview": "^7.0.0-dev.20250924.1",
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.25.8",
+    "oxlint": "^1.18.0",
+    "oxlint-tsgolint": "^0.2.0"
+  },
+  "trustedDependencies": [
+    "@vscode/vsce-sign",
+    "vue-typescript-plugin-pack"
+  ]
 }

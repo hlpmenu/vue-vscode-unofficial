@@ -139,12 +139,11 @@ export class TsserverBridge implements vscode.Disposable {
 			command,
 			arguments: args,
 		};
-		const json = JSON.stringify(payload);
-		const frame = `Content-Length: ${Buffer.byteLength(json, 'utf8')}` + '\r\n\r\n' + json;
+		const json = JSON.stringify(payload) + '\r\n';
 
 		return new Promise<unknown | undefined>((resolve, reject) => {
 			this.pending.set(seq, { resolve, reject });
-			current.stdin.write(frame, 'utf8', error => {
+			current.stdin.write(json, 'utf8', error => {
 				if (!error) {
 					return;
 				}
@@ -193,22 +192,26 @@ export class TsserverBridge implements vscode.Disposable {
 
 	private spawn() {
 		return new Promise<void>((resolve, reject) => {
-			const args = [
-				this.options.tsserverPath,
-				'--serverMode',
-				'partialSemantic',
-				'--useInferredProjectPerProjectRoot',
-				'--enableTelemetry',
-				'--globalPlugins',
-				this.options.pluginName,
-				'--allowLocalPluginLoads',
-				'--locale',
-				vscode.env.language,
-			];
+						const tsPluginPath = path.resolve(path.dirname(this.options.tsserverPath), '../../../', '@vue/typescript-plugin');
+						const args = [
+							this.options.tsserverPath,
+							'--serverMode',
+							'partialSemantic',
+							'--useInferredProjectPerProjectRoot',
+							'--enableTelemetry',
+							'--allowLocalPluginLoads',
+							'--globalPlugins',
+							'@vue/typescript-plugin',
+							'--pluginProbeLocations',
+							tsPluginPath,
+							'--locale',
+							vscode.env.language,
+							'--logVerbosity',
+							'verbose',
+							'--logFile',
+							'/dev/null',
+						];
 
-			for (const location of this.options.pluginProbeLocations) {
-				args.push('--pluginProbeLocations', location);
-			}
 			if (this.options.typingsInstallerPath) {
 				args.push('--typingsInstaller', this.options.typingsInstallerPath);
 			}
@@ -221,6 +224,8 @@ export class TsserverBridge implements vscode.Disposable {
 				},
 				stdio: ['pipe', 'pipe', 'pipe'],
 			});
+
+            this.process = child;
 
 			child.once('error', error => {
 				if (this.process === child) {
@@ -246,19 +251,19 @@ export class TsserverBridge implements vscode.Disposable {
 				this.rejectAll(new Error('tsserver exited'));
 			});
 
-			this.process = child;
-			this.seq = 0;
-			resolve();
+            resolve();
 		});
 	}
 
 	private handleStdout(chunk: Buffer) {
+		this.output.appendLine(`[stdout] ${chunk.toString('utf8')}`);
 		this.buffer += chunk.toString('utf8');
 		while (true) {
 			const separator = this.buffer.indexOf('\r\n\r\n');
 			if (separator === -1) {
 				return;
 			}
+
 			const header = this.buffer.slice(0, separator);
 			const lengthMatch = /Content-Length: (\d+)/i.exec(header);
 			if (!lengthMatch) {
@@ -267,14 +272,15 @@ export class TsserverBridge implements vscode.Disposable {
 			}
 
 			const length = Number(lengthMatch[1]);
-			const start = separator + 4;
-			const end = start + length;
-			if (this.buffer.length < end) {
+			const messageStart = separator + 4;
+			const messageEnd = messageStart + length;
+
+			if (this.buffer.length < messageEnd) {
 				return;
 			}
 
-			const json = this.buffer.slice(start, end);
-			this.buffer = this.buffer.slice(end);
+			const json = this.buffer.slice(messageStart, messageEnd);
+			this.buffer = this.buffer.slice(messageEnd);
 
 			try {
 				const message = JSON.parse(json) as TsserverMessage;
@@ -282,6 +288,7 @@ export class TsserverBridge implements vscode.Disposable {
 			}
 			catch (error) {
 				this.output.appendLine(`[error] Failed to parse tsserver payload: ${error instanceof Error ? error.message : String(error)}`);
+				this.output.appendLine(`[error] Payload: ${json}`);
 			}
 		}
 	}

@@ -87,11 +87,10 @@ async function initializeServers(context: vscode.ExtensionContext) {
 	});
 	const tsPluginPath = path.resolve(context.extensionPath, 'dist', 'ts-plugin.js');
 
-	    const tsServerOptions: TsserverOptions = {
-	        tsserverPath: tsServerPath,		// The plugin name is a dummy name, the important part is the probe location
-		pluginName: 'vue-typescript-plugin',
-		// Tell tsserver to only look for our bundled plugin
-		pluginProbeLocations: [path.dirname(tsPluginPath)],
+	const tsServerOptions: TsserverOptions = {
+		tsserverPath: tsServerPath,
+		pluginName: tsPluginPath,
+		pluginProbeLocations: [],
 	};
 
 	tsServerBridge = new TsserverBridge(tsServerOptions, tsOutputChannel);

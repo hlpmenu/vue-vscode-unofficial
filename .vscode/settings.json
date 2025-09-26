@@ -9,5 +9,6 @@
     },
     "biome.enabled": false,
     "npm.packageManager": "bun",
-    "typescript.experimental.useTsgo": true,
+    "typescript.experimental.useTsgo": false,
+    "typescript.tsdk": "node_modules/typescript/lib",
 }

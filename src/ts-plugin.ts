@@ -1,1 +1,1 @@
-export * from '@vue/typescript-plugin';
+export * from '@vue/language-server'
