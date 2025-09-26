@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { rm, mkdir } from 'node:fs/promises';
+import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+import * as path from 'node:path';
 
 const production = process.argv.includes('--production');
 
@@ -15,73 +16,55 @@ try {
   await rm('dist', { recursive: true, force: true });
   await mkdir('dist', { recursive: true });
 
- 
-
-  // Build extension
+  // Build extension entrypoint only
   const extensionResult = await Bun.build({
+    entrypoints: ['index.ts'],
     format: 'cjs',
-      naming: {
-        entry: 'extension.js',
-        asset: '[name]-[hash].[ext]',
-      },
     target: 'node',
+    outdir: 'dist',
+    packages: 'bundle',
+    naming: {
+      entry: 'extension.js',
+      asset: '[name]-[hash].[ext]',
+    },
     minify: production,
     sourcemap: production ? 'none' : 'external',
-    entrypoints: ['index.ts'],
-   outdir: 'dist',
-       packages: "bundle",   
-
     external: ['vscode'],
   });
 
-  // Build language server
-  const serverResult = await Bun.build({
-    format: 'esm',
-    target: 'node',
-    naming: {
-      entry: 'vue-lsp.js',
-      asset: '[name]-[hash].[ext]',
-    },
-        packages: "bundle",   
-
-    minify: production,
-    sourcemap: production ? 'none' : 'external',
-    entrypoints: ['src/vue-lsp.ts'],
-    outdir: 'dist',
-  });
-
-  // Build plugin
-  const pluginResult = await Bun.build({
-    format: 'esm',
-    target: 'node',
-    packages: "bundle",   
-     naming: {
-      entry: 'ts-plugin.js',
-      asset: '[name]-[hash].[ext]',
-    },  
-    minify: production,
-    sourcemap: production ? 'none' : 'external',
-    entrypoints: ['src/ts-plugin.ts'],
-    outdir: 'dist',
-  });
-
-  const results = [extensionResult, serverResult, pluginResult];
-  let success = true;
-
-  for (const result of results) {
-    if (!result.success) {
-      success = false;
-      console.error("Build failed:");
-      for (const message of result.logs) {
-        console.error(message);
-      }
+  if (!extensionResult.success) {
+    console.error('Build failed:');
+    for (const message of extensionResult.logs) {
+      console.error(message);
     }
-  }
-
-  if (!success) {
-    console.error('Build process failed.');
     process.exit(1);
   }
+
+  // Ensure dist/node_modules contains runtime deps for shims
+  await cp('node_modules', 'dist/node_modules', { recursive: true });
+
+  // Write CJS shim for Vue language server
+  await writeFile(
+    path.join('dist', 'vue-lsp.js'),
+    "module.exports = require('./node_modules/@vue/language-server/index.js');\n",
+    'utf8',
+  );
+
+  // Write CJS shim for Vue TypeScript plugin
+  await writeFile(
+    path.join('dist', 'ts-plugin.js'),
+    "module.exports = require('./node_modules/@vue/typescript-plugin/index.js');\n",
+    'utf8',
+  );
+
+  // Create a folder shim so tsserver can discover the plugin by name
+  const pluginFolder = path.join('dist', 'vue-typescript-plugin');
+  await mkdir(pluginFolder, { recursive: true });
+  await writeFile(
+    path.join(pluginFolder, 'index.js'),
+    "module.exports = require('../ts-plugin.js');\n",
+    'utf8',
+  );
 
   console.log('Build successful!');
 
