@@ -1,0 +1,14 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"target": "esnext",
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"plugins": "./"
+	},
+	"include": [
+		"./*.ts",
+		"./*.vue"
+	],
+
+}

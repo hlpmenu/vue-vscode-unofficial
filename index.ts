@@ -1,141 +1,119 @@
-/**
- * @file The main entry point for the Vue Native extension.
- */
-
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import {
-	LanguageClient,
-	LanguageClientOptions,
-	ServerOptions,
-	TransportKind,
+    LanguageClient,
+    LanguageClientOptions,
+    ServerOptions,
+    TransportKind,
+    Middleware, // We will need this for the final step
 } from 'vscode-languageclient/node';
 
+// We will also need the original files for the TsserverBridge
 import { TsserverBridge, TsserverOptions } from './src/tsserver/bridge';
 import { setBridge } from './src/tsserver/client';
+// We will need this in the next step, but let's import it now.
+import { registerVueTsserverBridge } from './src/vue-ts-bridge';
 
-// --- Begin: UI Feature Imports --- //
-// These are less critical for core functionality but provide a richer user experience.
-// They are based on the original Volar extension's features.
-import { config } from './src/lib/config';
-import * as focusMode from './src/lib/focusMode';
-import * as interpolationDecorators from './src/lib/interpolationDecorators';
-import * as reactivityVisualization from './src/lib/reactivityVisualization';
-import * as welcome from './src/lib/welcome';
-// --- End: UI Feature Imports --- //
+let vueLanguageClient: LanguageClient;
+let tsServerBridge: TsserverBridge; // The bridge to our managed tsserver
+let vueDebugChannel: vscode.OutputChannel;
 
-/** The language client for the Vue Language Server. */
-let vueLanguageClient: LanguageClient | undefined;
+// A simple logger for now
+export const log = (...args: any[]) => { // oxlint-disable-line
+    vueDebugChannel?.appendLine(args.join(' '));
+};
 
-/** The bridge to our managed TypeScript server process. */
-let tsServerBridge: TsserverBridge | undefined;
-
-/** Output channel for the Vue Language Server. */
-let vueOutputChannel: vscode.OutputChannel | undefined;
-
-/** Output channel for the managed TypeScript server. */
-let tsOutputChannel: vscode.OutputChannel | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
-	// Create output channels for logging
-	vueOutputChannel = vscode.window.createOutputChannel('Vue Language Server');
-	tsOutputChannel = vscode.window.createOutputChannel('Vue TypeScript Server');
-	context.subscriptions.push(vueOutputChannel, tsOutputChannel);
+    console.log('Activating Vue LSP client with TsserverBridge.');
 
-	// Initialize both the Vue Language Server and our managed TypeScript server
-	await initializeServers(context);
+    const vueOutputChannel = vscode.window.createOutputChannel('Vue Language Server');
+    const tsOutputChannel = vscode.window.createOutputChannel('Vue TypeScript Server');
+    vueDebugChannel = vscode.window.createOutputChannel('Vue Debug');
+    context.subscriptions.push(vueOutputChannel, tsOutputChannel, vueDebugChannel);
 
-	// Register commands
-	const restartCommand = vscode.commands.registerCommand('vue.action.restartServer', async () => {
-		if (!vueLanguageClient || !tsServerBridge) {
-			vscode.window.showErrorMessage('Servers are not running.');
-			return;
-		}
-		await tsServerBridge.restart();
-		await vueLanguageClient.restart();
-		vscode.window.showInformationMessage('Vue language servers restarted.');
-	});
-	context.subscriptions.push(restartCommand);
+    // --- 1. Initialize our managed TypeScript Server ---
+    // This part is from your old file, responsible for setting up and
+    // finding the right tsserver.js and plugin paths.
+    const tsServerPath = require.resolve('typescript/lib/tsserver.js');
+    // Assuming the plugin is in the workspace's node_modules for now
+    const vuePluginModulePath = path.dirname(require.resolve('@vue/typescript-plugin/package.json', { paths: [context.extensionPath] }));
 
-	// --- Begin: Activate UI Features --- //
-	const selectors = config.server.includeLanguages;
-	focusMode.activate(context, selectors);
-	interpolationDecorators.activate(context, selectors);
-	reactivityVisualization.activate(context, selectors);
-	welcome.activate(context);
-	// --- End: Activate UI Features --- //
+    const tsserverOptions: TsserverOptions = {
+        tsserverPath: tsServerPath,
+        pluginName: '@vue/typescript-plugin', // The name of the plugin to load
+        pluginProbeLocations: [vuePluginModulePath],
+    };
+
+    tsServerBridge = new TsserverBridge(tsserverOptions, tsOutputChannel, context.globalStorageUri.fsPath);
+    setBridge(tsServerBridge);
+    context.subscriptions.push(tsServerBridge);
+
+
+    // --- 2. Initialize the Vue Language Server ---
+    const vueServerModulePath = context.asAbsolutePath(
+        path.join('node_modules', '@vue', 'language-server', 'bin', 'vue-language-server.js')
+    );
+
+    const serverOptions: ServerOptions = {
+        run: { module: vueServerModulePath, transport: TransportKind.stdio },
+        debug: { module: vueServerModulePath, transport: TransportKind.stdio, options: { execArgv: ['--nolazy', '--inspect=6009'] } },
+    };
+
+
+
+
+    const middleware: Middleware = {
+        handleDiagnostics(uri, diagnostics, next) {
+            log('[Middleware.handleDiagnostics]', uri.toString(), JSON.stringify(diagnostics, null, 2));
+            next(uri, diagnostics);
+        },
+    };
+
+    
+
+    const clientOptions: LanguageClientOptions = {
+        middleware: middleware,
+        documentSelector: [
+            { language: 'vue', scheme: 'file' },
+            { language: 'typescript', scheme: 'file' },
+        ],
+        initializationOptions: {
+            typescript: {},
+        },
+        outputChannel: vueOutputChannel,
+        synchronize: {
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.vue'),
+        },
+    };
+
+    vueLanguageClient = new LanguageClient(
+        'vue',
+        'Vue Language Server',
+        serverOptions,
+        clientOptions
+    );
+
+    registerVueTsserverBridge(vueLanguageClient, tsServerBridge, tsOutputChannel);
+
+
+    // --- 3. Start Both Servers ---
+    // We start both servers, but they are not yet connected.
+    try {
+        await tsServerBridge.ensureStarted();
+        console.log('TsserverBridge started successfully.');
+        console.log('TsShadowClient started successfully.');
+        await vueLanguageClient.start();
+        console.log('Vue Language Server client started successfully.');
+
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to start language servers: ${String(error)}`);
+        console.error('Activation Error:', error);
+    }
 }
 
-export async function deactivate() {
-	await vueLanguageClient?.stop();
-	await tsServerBridge?.stop();
-	setBridge(undefined);
-}
-
-/**
- * Initializes and starts the Vue Language Server and the managed TSServer.
- */
-async function initializeServers(context: vscode.ExtensionContext) {
-	if (!vueOutputChannel || !tsOutputChannel) {
-		return; // Should not happen
-	}
-
-	// --- 1. Initialize the managed TypeScript Server --- //
-
-	const tsServerPath = require.resolve('typescript/lib/tsserver.js', {
-		paths: [context.extensionPath],
-	});
-	const tsPluginPath = path.resolve(context.extensionPath, 'dist', 'ts-plugin.js');
-
-	const tsServerOptions: TsserverOptions = {
-		tsserverPath: tsServerPath,
-		pluginName: tsPluginPath,
-		pluginProbeLocations: [],
-	};
-
-	tsServerBridge = new TsserverBridge(tsServerOptions, tsOutputChannel);
-	setBridge(tsServerBridge); // Make the bridge available to other parts of the extension
-	context.subscriptions.push(tsServerBridge);
-
-	// --- 2. Initialize the Vue Language Server --- //
-
-	const vueServerModulePath = path.resolve(context.extensionPath, 'dist', 'vue-lsp.js');
-
-	const serverOptions: ServerOptions = {
-		run: { module: vueServerModulePath, transport: TransportKind.ipc },
-		debug: { module: vueServerModulePath, transport: TransportKind.ipc, options: { execArgv: ['--nolazy', '--inspect=6009'] } },
-	};
-
-	const clientOptions: LanguageClientOptions = {
-		documentSelector: config.server.includeLanguages,
-		outputChannel: vueOutputChannel,
-	};
-
-	vueLanguageClient = new LanguageClient('vue', 'Vue', serverOptions, clientOptions);
-
-	// --- 3. Set up the bridge between the two servers --- //
-
-	// When the Vue server needs TypeScript information, it sends a custom request.
-	// We intercept it and forward it to our managed tsserver.
-	vueLanguageClient.onNotification('tsserver/request', async ([seq, command, args]) => {
-		if (!tsServerBridge) return;
-		try {
-			const body = await tsServerBridge.request(command, args);
-			// Send the response back to the Vue server
-			vueLanguageClient?.sendNotification('tsserver/response', [seq, body]);
-		}
-		catch (error) {
-			            tsOutputChannel?.appendLine(`[ERROR] TSServer request ${command} failed: ${String(error)}`);			// Send an error response back
-			vueLanguageClient?.sendNotification('tsserver/response', [seq, undefined]);
-		}
-	});
-
-	// --- 4. Start the servers --- //
-
-	try {
-		await tsServerBridge.ensureStarted();
-		await vueLanguageClient.start();
-	} catch (error) {
-		vscode.window.showErrorMessage(`Failed to start Vue language servers: ${error}`);
-	}
-}
+export async function deactivate(): Promise<void> {
+    await vueLanguageClient?.stop();
+    await tsServerBridge?.stop();
+    setBridge(undefined);
+} 

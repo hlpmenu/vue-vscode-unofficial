@@ -3,26 +3,35 @@
   "displayName": "Volar for Vue (Native TS)",
   "description": "Vue language support using the native TypeScript server (tsgo).",
   "version": "0.0.1",
-  "publisher": "TypeScriptTeam",
+  "publisher": "hlmpn",
   "private": true,
   "type": "commonjs",
   "engines": {
     "vscode": "^1.88.0"
   },
-    "scripts": {
+  "scripts": {
     "build": "bun run bundle",
     "watch": "bun scripts/build.ts --watch",
     "bundle": "bun scripts/build.ts",
     "package": "bunx --node vsce package",
     "check": "bun scripts/check.ts",
-    "test:tsserver": "cd test/tslsp2 && go run main.go"
+    "test:tsserver": "cd test/tslsp2 && go run main.go",
+    "generate:deps": "go run scripts/create_deps.go",
+    "typecheck": "bun scripts/typecheck.ts",
+    "lint": "bunx --bun oxlint --type-aware --max-warnings 0 --deny-warnings .",
+    "lint:single": "bunx --bun oxlint --type-aware --max-warnings 0 --deny-warnings",
+    "format": "bunx --bun biome format -w ."
   },
   "activationEvents": [
     "onLanguage"
   ],
   "main": "./dist/extension.js",
   "files": [
-    "dist",
+    "dist/extension.js",
+    "dist/extension.js.map",
+    "dist/vue-lsp.js",
+    "dist/vue-lsp.js.map",
+    "dist/node_modules",
     "languages",
     "schemas",
     "syntaxes",
@@ -102,7 +111,7 @@
     ]
   },
   "dependencies": {
-    "@types/bun": "^1.2.22",
+    "@volar/vscode": "^2.4.23",
     "@vue/language-server": "^3.0.8",
     "@vue/typescript-plugin": "^3.0.8",
     "typescript": "^5.9.2",
@@ -112,6 +121,7 @@
     "vue-typescript-plugin-pack": "^1.0.0"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.22",
     "@types/vscode": "^1.100.0",
     "@typescript/native-preview": "^7.0.0-dev.20250924.1",
     "@vscode/vsce": "^3.6.0",

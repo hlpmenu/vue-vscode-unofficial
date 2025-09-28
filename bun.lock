@@ -4,7 +4,7 @@
     "": {
       "name": "native-preview",
       "dependencies": {
-        "@types/bun": "^1.2.22",
+        "@volar/vscode": "^2.4.23",
         "@vue/language-server": "^3.0.8",
         "@vue/typescript-plugin": "^3.0.8",
         "typescript": "^5.9.2",
@@ -14,6 +14,7 @@
         "vue-typescript-plugin-pack": "^1.0.0",
       },
       "devDependencies": {
+        "@types/bun": "^1.2.22",
         "@types/vscode": "^1.100.0",
         "@typescript/native-preview": "^7.0.0-dev.20250924.1",
         "@vscode/vsce": "^3.6.0",
@@ -249,6 +250,8 @@
     "@volar/source-map": ["@volar/source-map@2.4.23", "", {}, "sha512-Z1Uc8IB57Lm6k7q6KIDu/p+JWtf3xsXJqAX/5r18hYOTpJyBn0KXUR8oTJ4WFYOcDzWC9n3IflGgHowx6U6z9Q=="],
 
     "@volar/typescript": ["@volar/typescript@2.4.23", "", { "dependencies": { "@volar/language-core": "2.4.23", "path-browserify": "^1.0.1", "vscode-uri": "^3.0.8" } }, "sha512-lAB5zJghWxVPqfcStmAP1ZqQacMpe90UrP5RJ3arDyrhy4aCUQqmxPPLB2PWDKugvylmO41ljK7vZ+t6INMTag=="],
+
+    "@volar/vscode": ["@volar/vscode@2.4.23", "", { "dependencies": { "path-browserify": "^1.0.1", "vscode-languageclient": "^9.0.1", "vscode-nls": "^5.2.0" } }, "sha512-rLghFmq5+pEpEkuMZtnFUVZFagYxas9q9U4U8ErcJ5Qv4bZ7AZ2oj5Wz4gx0O79ZgdOblDZIgttokw2Pc+VtnQ=="],
 
     "@vscode/emmet-helper": ["@vscode/emmet-helper@2.11.0", "", { "dependencies": { "emmet": "^2.4.3", "jsonc-parser": "^2.3.0", "vscode-languageserver-textdocument": "^1.0.1", "vscode-languageserver-types": "^3.15.1", "vscode-uri": "^3.0.8" } }, "sha512-QLxjQR3imPZPQltfbWRnHU6JecWTF1QSWhx3GAKQpslx7y3Dp6sIIXhKjiUJ/BR9FX8PVthjr9PD6pNwOJfAzw=="],
 

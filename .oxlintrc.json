@@ -22,7 +22,10 @@
     "**/bundle/**",
     "packages/vscode-ide-companion/esbuild.js",
     "scripts/**",
-    "ref/**",
+    "language-tools/**",
+    "plugin-shims/**",
+    "test/**",
+    "ref/**"
   ],
   "rules": {
     "for-direction": "error",

@@ -3,6 +3,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
+import { log } from '../../index';
+
 export interface TsserverOptions {
 	readonly tsserverPath: string;
 	readonly typingsInstallerPath?: string;
@@ -11,6 +13,7 @@ export interface TsserverOptions {
 }
 
 const TYPINGS_INSTALLER_FILENAME = 'typingsInstaller.js';
+const logFilePath = '/tmp/tsserver.log';
 
 export const resolveTsserverOptions = (
 	pluginName: string,
@@ -108,7 +111,7 @@ export class TsserverBridge implements vscode.Disposable {
 	private disposed = false;
 	private seq = 0;
 
-	constructor(private readonly options: TsserverOptions, output: vscode.OutputChannel) {
+	constructor(private readonly options: TsserverOptions, output: vscode.OutputChannel, private readonly storagePath: string) {
 		this.output = output;
 	}
 
@@ -126,6 +129,7 @@ export class TsserverBridge implements vscode.Disposable {
 	}
 
 	async request(command: string, args: unknown) {
+		log('[TsserverBridge.request]', `Command: ${command}`, JSON.stringify(args, null, 2));
 		await this.ensureStarted();
 		const current = this.process;
 		if (!current || !current.stdin.writable) {
@@ -139,11 +143,12 @@ export class TsserverBridge implements vscode.Disposable {
 			command,
 			arguments: args,
 		};
-		const json = JSON.stringify(payload) + '\r\n';
-
+		const json = JSON.stringify(payload);
+		this.output.appendLine(`[stdin] ${json}`);
+		let frame = `${json}\r\n`;
 		return new Promise<unknown | undefined>((resolve, reject) => {
 			this.pending.set(seq, { resolve, reject });
-			current.stdin.write(json, 'utf8', error => {
+			current.stdin.write(frame, 'utf8', error => {
 				if (!error) {
 					return;
 				}
@@ -192,32 +197,32 @@ export class TsserverBridge implements vscode.Disposable {
 
 	private spawn() {
 		return new Promise<void>((resolve, reject) => {
-						const tsPluginPath = path.resolve(path.dirname(this.options.tsserverPath), '../../../', '@vue/typescript-plugin');
-						const args = [
-							this.options.tsserverPath,
-							'--serverMode',
-							'partialSemantic',
-							'--useInferredProjectPerProjectRoot',
-							'--enableTelemetry',
-							'--allowLocalPluginLoads',
-							'--globalPlugins',
-							'@vue/typescript-plugin',
-							'--pluginProbeLocations',
-							tsPluginPath,
-							'--locale',
-							vscode.env.language,
-							'--logVerbosity',
-							'verbose',
-							'--logFile',
-							'/dev/null',
-						];
-
+			//const tsPluginPath = path.resolve(path.dirname(this.options.tsserverPath), '../../../', '@vue/typescript-plugin');
+			const args = [
+				this.options.tsserverPath,
+				'--disableAutomaticTypingAcquisition',
+				'--globalPlugins',
+				'@vue/typescript-plugin',
+				'--pluginProbeLocations',
+				this.options.pluginProbeLocations.join(','),
+				'--suppressDiagnosticEvents',
+				'--locale',
+				vscode.env.language,
+				'--logVerbosity',
+				'verbose',
+				'--logFile',
+				logFilePath,
+			];
 			if (this.options.typingsInstallerPath) {
 				args.push('--typingsInstaller', this.options.typingsInstallerPath);
 			}
+			// @ts-ignore
+			const workspaceDir = vscode.workspace.workspaceFolders[0].uri.fsPath; 
+
 
 			const child = cp.spawn(process.execPath, args, {
-				cwd: path.dirname(this.options.tsserverPath),
+				//	cwd: path.dirname(this.options.tsserverPath),
+				cwd: workspaceDir,
 				env: {
 					...process.env,
 					TSS_NONPOLLING_IO: '1',
@@ -225,7 +230,7 @@ export class TsserverBridge implements vscode.Disposable {
 				stdio: ['pipe', 'pipe', 'pipe'],
 			});
 
-            this.process = child;
+			this.process = child;
 
 			child.once('error', error => {
 				if (this.process === child) {
@@ -251,8 +256,50 @@ export class TsserverBridge implements vscode.Disposable {
 				this.rejectAll(new Error('tsserver exited'));
 			});
 
-            resolve();
+			this.request('configure', {
+				hostInfo: 'vscode',
+				preferences: {
+					providePrefixAndSuffixTextForRename: true,
+					allowRenameOfImportPath: true,
+					includePackageJsonAutoImports: 'auto',
+					excludeLibrarySymbolsInNavTo: false,
+				},
+			}).then(() => {
+				return this.request('compilerOptionsForInferredProjects', {
+					options: {
+						module: 'ESNext',
+						moduleResolution: 'Bundler',
+						target: 'ESNext',
+						jsx: 'react',
+						allowImportingTsExtensions: true,
+						checkJs: true,
+						allowJs: true,
+						strictNullChecks: true,
+						strictFunctionTypes: true,
+						sourceMap: true,
+						allowSyntheticDefaultImports: true,
+						allowNonTsExtensions: true,
+						resolveJsonModule: true,
+					},
+				});
+			}).then(() => {
+				resolve();
+				this.bootstrapProject();
+			});
 		});
+	}
+            
+	private bootstrapProject() {
+		const workspaceFolder = vscode.workspace.workspaceFolders?.find(folder => folder.uri.scheme === 'file');
+		const projectRootPath = workspaceFolder?.uri.fsPath ?? this.storagePath;
+		const openFiles = [{ file: `${projectRootPath}/tsconfig.json` }];
+		this.output.appendLine(`[info] Bootstrapping project at ${projectRootPath}`);
+		this.output.appendLine(`[info] workspacefolder: ${workspaceFolder}`);
+		//	const dummyFilePath = path.join(projectRootPath, '__dummy_project_bootstrap__.ts');
+		this.request('updateOpen', {
+			openFiles: openFiles,
+					
+		});	
 	}
 
 	private handleStdout(chunk: Buffer) {
@@ -294,6 +341,7 @@ export class TsserverBridge implements vscode.Disposable {
 	}
 
 	private handleMessage(message: TsserverMessage) {
+		log('[TsserverBridge.handleMessage]', JSON.stringify(message, null, 2));
 		if (message.type === 'response') {
 			const pending = this.pending.get(message.request_seq);
 			if (!pending) {
@@ -325,6 +373,7 @@ export class TsserverBridge implements vscode.Disposable {
 	}
 
 	private write(message: SerializedResponse) {
+		log('[TsserverBridge.write]', JSON.stringify(message, null, 2));
 		const json = JSON.stringify(message);
 		const frame = `Content-Length: ${Buffer.byteLength(json, 'utf8')}` + '\r\n\r\n' + json;
 		this.process?.stdin.write(frame, 'utf8');

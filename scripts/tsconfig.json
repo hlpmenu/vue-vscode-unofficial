@@ -1,6 +1,6 @@
 {
     "extends": "../tsconfig.json",
-    "include": [ "**/*.ts" ],
+    "include": [ "**.js", "**.ts" ],
     "exclude": [ "node_modules" ],
     "compilerOptions": {
         "module": "esnext",
@@ -9,5 +9,5 @@
         "sourceMap": false,
         "outDir": "../dist",
         "types": [ "@types/bun" ]
-    }
+    },
 }

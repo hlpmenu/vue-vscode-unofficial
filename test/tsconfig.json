@@ -1,0 +1,15 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"target": "esnext",
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"types": [ "vue" ],
+		"plugins": [ { "name": "@vue/typescript-plugin" } ]
+	},
+	"include": [
+		"./*.ts",
+		"./*.vue"
+	],
+
+}

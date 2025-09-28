@@ -1,14 +1,15 @@
 {
     "[typescript]": {
-        "editor.defaultFormatter": "vscode.typescript-language-features",
+        "editor.defaultFormatter": "TypeScriptTeam.native-preview",
         "editor.formatOnSave": true,
+
     },
     "[javascript]": {
-        "editor.defaultFormatter": "vscode.typescript-language-features",
+        "editor.defaultFormatter": "TypeScriptTeam.native-preview",
         "editor.formatOnSave": true,
     },
     "biome.enabled": false,
     "npm.packageManager": "bun",
-    "typescript.experimental.useTsgo": false,
-    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.experimental.useTsgo": true,
+    "typescript.tsserver.useSyntaxServer": "auto",
 }
