@@ -5,32 +5,33 @@ import {
     LanguageClientOptions,
     ServerOptions,
     TransportKind,
-    Middleware, // We will need this for the final step
+    Trace,
 } from 'vscode-languageclient/node';
+import { createMiddleware } from './src/middleware/middleware';
 
 // We will also need the original files for the TsserverBridge
 import { TsserverBridge, TsserverOptions } from './src/tsserver/bridge';
 import { setBridge } from './src/tsserver/client';
 // We will need this in the next step, but let's import it now.
 import { registerVueTsserverBridge } from './src/vue-ts-bridge';
+import { setuo as setupLog } from './src/debug/log';
 
 let vueLanguageClient: LanguageClient;
 let tsServerBridge: TsserverBridge; // The bridge to our managed tsserver
-let vueDebugChannel: vscode.OutputChannel;
+let vueOutputChannel: vscode.OutputChannel;
 
-// A simple logger for now
-export const log = (...args: any[]) => { // oxlint-disable-line
-    vueDebugChannel?.appendLine(args.join(' '));
-};
 
 
 export async function activate(context: vscode.ExtensionContext) {
+
+    setupLog(context);
     console.log('Activating Vue LSP client with TsserverBridge.');
 
-    const vueOutputChannel = vscode.window.createOutputChannel('Vue Language Server');
+    
+
+    vueOutputChannel = vscode.window.createOutputChannel('Vue Language Server');
     const tsOutputChannel = vscode.window.createOutputChannel('Vue TypeScript Server');
-    vueDebugChannel = vscode.window.createOutputChannel('Vue Debug');
-    context.subscriptions.push(vueOutputChannel, tsOutputChannel, vueDebugChannel);
+    context.subscriptions.push(vueOutputChannel, tsOutputChannel);
 
     // --- 1. Initialize our managed TypeScript Server ---
     // This part is from your old file, responsible for setting up and
@@ -63,12 +64,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 
 
-    const middleware: Middleware = {
-        handleDiagnostics(uri, diagnostics, next) {
-            log('[Middleware.handleDiagnostics]', uri.toString(), JSON.stringify(diagnostics, null, 2));
-            next(uri, diagnostics);
-        },
-    };
+    const middleware = createMiddleware(tsServerBridge, vueOutputChannel);
 
     
 
@@ -78,10 +74,18 @@ export async function activate(context: vscode.ExtensionContext) {
             { language: 'vue', scheme: 'file' },
             { language: 'typescript', scheme: 'file' },
         ],
+
         initializationOptions: {
             typescript: {},
+            vue: {},
+            "diagnosticModel": "pull",
+            "completion": { "ignoreTriggerCharacters": false }
+
+
         },
         outputChannel: vueOutputChannel,
+        // Route full LSP traces to the Vue Debug channel so we see bodies
+        traceOutputChannel: vueOutputChannel,
         synchronize: {
             fileEvents: vscode.workspace.createFileSystemWatcher('**/*.vue'),
         },
@@ -93,6 +97,10 @@ export async function activate(context: vscode.ExtensionContext) {
         serverOptions,
         clientOptions
     );
+
+    // Ensure verbose tracing (includes params/results bodies)
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    (vueLanguageClient as unknown as { setTrace: (t: Trace) => void }).setTrace?.(Trace.Verbose);
 
     registerVueTsserverBridge(vueLanguageClient, tsServerBridge, tsOutputChannel);
 

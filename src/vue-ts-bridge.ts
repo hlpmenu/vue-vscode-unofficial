@@ -3,7 +3,7 @@
 import lsp from '@volar/vscode/node';
 import type { TsserverBridge } from './tsserver/bridge';
 import * as vscode from 'vscode';
-import { log } from '../index';
+import { log } from './debug/log';
 
 /**
  * Sets up the RPC bridge for custom commands between the Vue Language Server and the managed TSServer.

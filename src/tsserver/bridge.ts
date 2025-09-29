@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
-import { log } from '../../index';
+import { log } from '../debug/log';
 
 export interface TsserverOptions {
 	readonly tsserverPath: string;
@@ -129,7 +129,7 @@ export class TsserverBridge implements vscode.Disposable {
 	}
 
 	async request(command: string, args: unknown) {
-		log('[TsserverBridge.request]', `Command: ${command}`, JSON.stringify(args, null, 2));
+		log('[In request(): TsserverBridge.request]', `Command: ${command}`, JSON.stringify(args, null, 2));
 		await this.ensureStarted();
 		const current = this.process;
 		if (!current || !current.stdin.writable) {
