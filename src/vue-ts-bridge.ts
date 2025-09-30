@@ -25,16 +25,14 @@ export function registerVueTsserverBridge(
     // When the Vue server needs TypeScript information, it sends a custom 'tsserver/request' notification.
     // We intercept it, forward it to our managed tsserver, and send the response back.
     vueLanguageClient.onNotification('tsserver/request', async ([seq, command, args]) => {
-        log(`[onNotification] Notification:  Seq: ${seq}, Command: ${command}, Args: ${JSON.stringify(args)}`);
+        const payload = JSON.stringify({ seq, command, args });
+        log('[VueTsBridge.onNotification]', payload || null);
         try {
             const body = await tsServerBridge.request(command, args);
-            log(`[onNotification] body from tsServerBridge.request : ${JSON.stringify(body)}`);
-            // The response is sent back via a 'tsserver/response' notification.
             await vueLanguageClient.sendNotification('tsserver/response', [seq, body]); // @ts-ignore-line
         }
         catch (error) {
-            log(`[onNotification] Error: ${String(error)}`);
-            outputChannel.appendLine(`[ERROR] TSServer request ${command} failed: ${String(error)}`);
+            log(`[onRequest] Error: ${String(error)}`);
             // Send an error/undefined response back to the Vue server to unblock it.
             await vueLanguageClient.sendNotification('tsserver/response', [seq, undefined]);
         }

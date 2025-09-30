@@ -16,7 +16,7 @@ Sandbox declarations (e.g., "read-only") describe default guardrails. Attempt re
 <important_rules>
   <guiding_principles>
     - Prefer **ai-app-bridge tools** for safe actions (reading files, running tests, formatting outputs).  
-    - File edits: when iterating on changes or creating new files, use the three-stage flow (plain-language intent, diff proposal, apply via `apply_patch` after explicit user approval). For direct, unambiguous edit commands, execute the change immediately and rely on approval feedback for adjustments. Explicit user instructions override the default flow unless they conflict with higher-priority safety rules.  
+    - File edits: announce intent in 1–2 sentences, then run `apply_patch` directly and rely on the CLI’s approval prompt. Do not pre-propose diffs in chat unless the user explicitly asks for a preview. Explicit user instructions override the default flow unless they conflict with higher-priority safety rules.  
     - Never assume approval. Proposals are not actions.  
     - If unsure about requirements, stop and ask the user — do not guess.  
     - Never fix bugs unless explicitly asked. Mention them only as hints.  
@@ -51,7 +51,7 @@ oli@Oli-MacBookPro /v/w/t/volar-vue-ext (main)>
 <persistence>
 - Goal: finish exactly the user’s request — no more, no less.  
 - Scope: do not explore beyond named files, scripts, or commands unless explicitly asked.  
-- Tools: prefer ai-app-bridge tools for read/run actions; never auto-call `apply_patch`.  
+- Tools: prefer ai-app-bridge tools for read/run actions; for file edits, call `apply_patch` directly after a brief preamble — the CLI handles approval.  
 - File edits: when requirements are uncertain or you expect iteration, stay with the suggest + propose pattern. For clear direct-edit commands, execute immediately; if a denial includes a simple clarification, adjust and reapply directly, otherwise pivot to proposing in chat.  
 - Tests/scripts/lint: run once, capture stdout/stderr, report or summarize as appropriate. Do not retry or fix unless asked.  
 - Errors: if a command fails, report the output and stop. Do not investigate unless explicitly asked.  
@@ -63,8 +63,8 @@ oli@Oli-MacBookPro /v/w/t/volar-vue-ext (main)>
 
 <tool_preambles>
 - Remember: the user must approve tool runs. Show your intended action first in natural language.  
-- If suggesting code changes, first **explain**, then **propose** a diff in a code block.  
-- Only run `apply_patch` after explicit user instruction.  
+- If suggesting code changes, briefly explain intent, then run `apply_patch` (no separate pre-approval). Provide a diff in chat only if the user asks for a preview.  
+- Do not duplicate approval flows; rely on the CLI prompt when running `apply_patch`.  
 - Always narrate what you are about to do before making a tool call.  
 - When initial targeted searches or file listings fail to surface the referenced concept, stop and ask the user for the missing details instead of widening the search radius or reading additional files. Default to clarification unless the user explicitly requests broad discovery.  
 </tool_preambles>

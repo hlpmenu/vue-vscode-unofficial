@@ -1,11 +1,10 @@
-import * as vscode from 'vscode';
 import { Middleware } from 'vscode-languageclient/node';
+import * as vscode from 'vscode';
 import { TsserverBridge } from '../tsserver/bridge';
 import { log } from '../debug/log';
 
 export const createMiddleware = (
     tsServerBridge: TsserverBridge,
-    vueOutputChannel: vscode.OutputChannel,
 ): Middleware => {
     const middleware: Middleware = {
         handleDiagnostics(uri, diagnostics, next) {
@@ -17,21 +16,25 @@ export const createMiddleware = (
             const res = await next(document, position, token);
             log('[Middleware.provideHover.result]', JSON.stringify(res, null, 2));
             if (res) return res;
-
+            
 
             const args = {
                 file: document.uri.fsPath,         // absolute path
                 line: position.line + 1,           // 1-based
                 offset: position.character + 1     // 1-based
             };
-            const tsRes = await tsServerBridge.request('_vue:quickinfo', args);
+            const tsRes = await tsServerBridge.request('_vue:quickinfo', args) as any | undefined;
             if (typeof tsRes === 'undefined') {
                 return null;
             }
-            vueOutputChannel.appendLine(`tsRes: ${JSON.stringify(tsRes, null, 2)}`);
+
+            log(`tsRes: ${JSON.stringify(tsRes, null, 2)}`);
+
+            if (tsRes?.displayString) return new vscode.Hover([new vscode.MarkdownString().appendCodeblock(tsRes.displayString, 'ts')]);
+
 
             log('[Middleware.provideHover.tsResult]', JSON.stringify(tsRes, null, 2));
-            if (tsRes) return tsRes as never;  
+            if (tsRes) return tsRes as vscode.Hover;  
             
         },
         provideDefinition(document, position, token, next) {
