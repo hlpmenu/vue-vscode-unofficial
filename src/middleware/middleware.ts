@@ -2,15 +2,13 @@ import type { Middleware } from 'vscode-languageclient/node';
 import type { TsserverBridge } from '../tsserver/bridge';
 import { log } from '../debug/log';
 import hoverProvider from './hover';
+import { didOpen } from './did_action';
+import { provideDiagnostics, handleDiagnostics as diagnosticsHandler } from './diagnostics';
 
 export const createMiddleware = (
     tsServerBridge: TsserverBridge, // oxlint-disable-line
 ): Middleware => {
     const middleware: Middleware = {
-        handleDiagnostics(uri, diagnostics, next) {
-            log('[Middleware.handleDiagnostics]', uri.toString(), JSON.stringify(diagnostics, null, 2));
-            next(uri, diagnostics);
-        },
         provideHover: hoverProvider,
         provideDefinition(document, position, token, next) {
             log('[Middleware.provideDefinition.request]', JSON.stringify({ uri: document.uri.toString(), position }, null, 2));
@@ -41,6 +39,9 @@ export const createMiddleware = (
                 return res as never;
             });
         },
+        didOpen: didOpen,
+        provideDiagnostics: provideDiagnostics,
+        handleDiagnostics: diagnosticsHandler,
     };
     return middleware;
 };

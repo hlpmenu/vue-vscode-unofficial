@@ -263,6 +263,11 @@
           "default": "off",
           "description": "Trace communication between VS Code and the Vue language server."
         },
+        "vue.editor.templateInterpolationDecorators": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable decorations for Vue template interpolations."
+        },
         "vue.server.includeLanguages": {
           "type": "array",
           "items": {

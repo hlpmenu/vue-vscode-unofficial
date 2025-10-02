@@ -36,6 +36,7 @@ import {
     OrganizeImportsMode,
     SemicolonPreference,
 } from "./protocol.d.ts";
+import { DiagnosticCategory } from "typescript";
 
 export {
     ApplicableRefactorInfo,
@@ -2887,3 +2888,9 @@ export const enum ScriptTarget {
     Latest = "esnext"
 }
 
+
+/* 
+* Generated helpr types
+*/
+
+export type DiagnosticCategory = "error" | "warning" | "suggestion"; 

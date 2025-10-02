@@ -72,7 +72,14 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
             isTrusted: true,
             supportHtml: true,
         },
-        
+      
+        diagnosticCollectionName: "pull",
+        diagnosticPullOptions: {
+            onTabs: true,                   // re-pull on tab change
+            onChange: true,                 // re-pull on didChange
+            onSave: true,                   // re-pull on didSave
+
+        },
         outputChannel: vueOutputChannel,
         traceOutputChannel: vueOutputChannel,
     };

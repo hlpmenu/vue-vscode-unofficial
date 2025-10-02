@@ -200,12 +200,12 @@ export class TsserverBridge implements vscode.Disposable {
 			//const tsPluginPath = path.resolve(path.dirname(this.options.tsserverPath), '../../../', '@vue/typescript-plugin');
 			const args = [
 				this.options.tsserverPath,
-				'--disableAutomaticTypingAcquisition',
+			//	'--disableAutomaticTypingAcquisition',
 				'--globalPlugins',
 				'@vue/typescript-plugin',
 				'--pluginProbeLocations',
 				this.options.pluginProbeLocations.join(','),
-				'--suppressDiagnosticEvents',
+			//	'--suppressDiagnosticEvents',
 				'--locale',
 				vscode.env.language,
 				'--logVerbosity',
