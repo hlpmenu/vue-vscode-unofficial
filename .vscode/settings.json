@@ -11,5 +11,5 @@
     "biome.enabled": false,
     "npm.packageManager": "bun",
     "typescript.experimental.useTsgo": true,
-    "typescript.tsserver.useSyntaxServer": "auto",
+    "typescript.tsserver.useSyntaxServer": "never",
 }

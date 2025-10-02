@@ -1,42 +1,17 @@
-import { Middleware } from 'vscode-languageclient/node';
-import * as vscode from 'vscode';
-import { TsserverBridge } from '../tsserver/bridge';
+import type { Middleware } from 'vscode-languageclient/node';
+import type { TsserverBridge } from '../tsserver/bridge';
 import { log } from '../debug/log';
+import hoverProvider from './hover';
 
 export const createMiddleware = (
-    tsServerBridge: TsserverBridge,
+    tsServerBridge: TsserverBridge, // oxlint-disable-line
 ): Middleware => {
     const middleware: Middleware = {
         handleDiagnostics(uri, diagnostics, next) {
             log('[Middleware.handleDiagnostics]', uri.toString(), JSON.stringify(diagnostics, null, 2));
             next(uri, diagnostics);
         },
-        async provideHover(document, position, token, next) {
-            log('[Middleware.provideHover.request]', JSON.stringify({ uri: document.uri.toString(), position }, null, 2));
-            const res = await next(document, position, token);
-            log('[Middleware.provideHover.result]', JSON.stringify(res, null, 2));
-            if (res) return res;
-            
-
-            const args = {
-                file: document.uri.fsPath,         // absolute path
-                line: position.line + 1,           // 1-based
-                offset: position.character + 1     // 1-based
-            };
-            const tsRes = await tsServerBridge.request('_vue:quickinfo', args) as any | undefined;
-            if (typeof tsRes === 'undefined') {
-                return null;
-            }
-
-            log(`tsRes: ${JSON.stringify(tsRes, null, 2)}`);
-
-            if (tsRes?.displayString) return new vscode.Hover([new vscode.MarkdownString().appendCodeblock(tsRes.displayString, 'ts')]);
-
-
-            log('[Middleware.provideHover.tsResult]', JSON.stringify(tsRes, null, 2));
-            if (tsRes) return tsRes as vscode.Hover;  
-            
-        },
+        provideHover: hoverProvider,
         provideDefinition(document, position, token, next) {
             log('[Middleware.provideDefinition.request]', JSON.stringify({ uri: document.uri.toString(), position }, null, 2));
             return Promise.resolve(next(document, position, token)).then(res => {
@@ -44,13 +19,7 @@ export const createMiddleware = (
                 return res;
             });
         },
-        provideDocumentHighlights(document, position, token, next) {
-            log('[Middleware.provideDocumentHighlights.request]', JSON.stringify({ uri: document.uri.toString(), position }, null, 2));
-            return Promise.resolve(next(document, position, token)).then(res => {
-                log('[Middleware.provideDocumentHighlights.result]', JSON.stringify(res, null, 2));
-                return res;
-            });
-        },
+ 
         provideCodeActions(document, range, context, token, next) {
             log('[Middleware.provideCodeActions.request]', JSON.stringify({ uri: document.uri.toString(), range, context }, null, 2));
             return Promise.resolve(next(document, range, context, token)).then(res => {

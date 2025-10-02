@@ -11,9 +11,13 @@
         "resolveJsonModule": true,
         "sourceMap": true,
         "types": [ "@types/bun" ],
+        "disableSizeLimit": true,
+        "allowImportingTsExtensions": true,
+        "resolvePackageJsonExports": true,
+
 
     },
-    "typeAcquisition": { "enable": true },
+    //"typeAcquisition": { "enable": true },
     "skipLibCheck": true,
     "include": [ "src/**/*.ts", "src/**/*.js", "./index.ts", "scripts/**.{ts,js}", "test/**/*.vue" ],
     "exclude": [ "node_modules/**", "dist", "**/*.min.js", "**/*.bundle.js", "ref/**" ]

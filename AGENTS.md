@@ -74,127 +74,64 @@ oli@Oli-MacBookPro /v/w/t/volar-vue-ext (main)>
 The user is a senior engineer and you should assume as a baseline they know what they are talking about. Don’t be afraid to ask for help; they will gladly do so.
 </about_user>
 
-
 <about_project>
-<background>
+    <problem_statement>
+        The official `typescript-native-preview` VS Code extension (`tsgo`) lacks support for TSServer plugins. This breaks extensions like Volar, which rely on `@vue/typescript-plugin` to provide TypeScript intelligence within `.vue` Single File Components (SFCs). Without this plugin, essential features like type-checking, completions, and hover information for TypeScript code inside Vue files are lost.
+    </problem_statement>
 
-# General
-Since microsoft relased the official tsgo preview, they also released a vscode extension to enable using tsgo for the builtin typescript language server. 
+    <solution_overview>
+        This extension re-enables full Vue language support by running its own managed instance of the standard `tsserver` as a background process. This managed server is explicitly configured to load the `@vue/typescript-plugin`, making it fully Vue-aware. This architecture acts as a "bridge," allowing the main Vue Language Server and the VS Code editor to communicate with a Vue-capable TypeScript server, restoring rich TypeScript functionality for `.vue` files.
+    </solution_overview>
 
-The extension is called `typescript-native-preview`. 
+    <architecture>
+        <component name="Managed TSServer (`TsserverBridge`)">
+            - The core of the extension, defined in `src/tsserver/bridge.ts`.
+            - Spawns and manages a `tsserver` child process.
+            - Handles all low-level stdio communication.
+            - Injects the `--globalPlugins=@vue/typescript-plugin` and `--pluginProbeLocations` arguments to ensure the Vue plugin is loaded.
+        </component>
+        <component name="LSP Middleware">
+            - Defined in `src/middleware/middleware.ts`.
+            - Intercepts standard LSP requests from the VS Code editor (e.g., `provideHover`).
+            - Orchestrates calls to the managed `tsserver` and the main Vue Language Server to provide rich editor features.
+        </component>
+        <component name="Internal Notification Bridge">
+            - Defined in `src/vue-ts-bridge.ts`.
+            - Forwards requests from the main `@vue/language-server` to the managed `tsserver`.
+        </component>
+        <component name="Language Feature Contributions">
+            - Defined in `package.json`.
+            - Provides comprehensive language support beyond the bridge, including:
+                - Rich TextMate grammars for syntax highlighting of `.vue` files and embedded languages.
+                - Language configuration for brackets and comments.
+                - A Vue-specific JSON schema for `tsconfig.json`.
+                - Semantic highlighting scopes for Vue constructs.
+        </component>
+    </architecture>
 
-This extension is not a pure "replace typescript-server with tsgo as the typscript lsp". Its a preview of the future vscode integration of ts in general. Hence it changes a bit more than just switches to tsgo.
-One of the things it does is removes all the `typescript.*` commands from vscode.
-
-Another important thing is tsgo does at this moment lack support for one specific feature that typescript-server has. Its unclear if this is left out during preview, or if its never going to support this feature. Said feature is usage of "plugins" in the lsp. 
-
-# The issue
-
-## The vscode api problem
-Since the extension removes the `typescript.*` commands from vscode, it breaks a few extensions which rely on that specific api.
-In this case, the vue volar extension is one of them. You can see the full Volar source code within the `ref/` dir, mainly the index.ts is what matters. The Volar extension patches the builtin typescript extension by adding the @vue/typescript-plugin to be ran in the builtin typescript language server. When sending requests to the ts lsp, it then uses the `typescript.tsserverRequest` command to send the request to the ts lsp.
-
-**We have patches the typescript-native-preview extension** to add the send request command. This allows extensions relying on this specific feature to work like normal. However we cannot patch the extension to support being patched by other extensions. Since tsgo itself does not support plugins. 
-
-Adding plugin support to the typescript-native-preview extension would require running a secondary "helper" instance of typescript-server. This would need to be spun up at all times, to be ready for any potential patching, and it would require then routing the "typescript.tsserverRequest" command to the secondary instance. This would mean, **all** extensions relying on the "typescript.tsserverRequest" would be using the older, slower typescript-server, and additionally, these extensions would now access a different instance of the language server than the one used nativly by vscode. Leading to a lot of the benefits of using tsgo being lost. Plus adding a risk for weird bugs caused by as a example, the tsgo lsp responding faster than the typescript-server when a file is changed or created, when tsconfig is modified etc. And all that just to support patching and plugins, even tho its only used by a minority of extensions.
-
-Therefore, the correct approach is to do a semi-fork of Volar instead. See specifics in the intended_design tag.
-
-## The volar implementation issue
-Volar(the original) interacts with the vscode managed tsserver. This means like explained above, that if we would decide to patch the typescript-native-preview extension, it would require a complete polyfill for all the std commands/api, and in the process make tsgo lsp impossible to use by the other 90% of extensions using typescript-server, only to support outliers such as the volar extension.
-
-Instead the correct approach is to let Volar run its own typescript-server with the @vue/typescript-plugin added. ANd then then its own @vue/language-server for the non-ts/js part of vue sfc files(ex template, and style).
-</background>
-<intended_design>
-The original Volar implementation relies on the vscode managed tsserver. This version should instead spin up its own managed tsserver with the @vue/typescript-plugin added. Running it as a stdio lsp, and the parts where it calls the vscode command `typescript.tsserverRequest` should be replaced with a call to the new managed tsserver.
-
-The files which lives in the `src` dir in the original Volar extension(present in `ref/src/`) would not neccesarily need to be get any major changes. 
-
-The requests themself might need to be slightly adjusted, since its not 100% sure the direct lsp requests to tsserver+@vue/typescript-plugin will look identical to the `_vue` prefixed requests done to the vscode managed tsserver as they were passed trough the vscode typescript extension rather than reaching the lsp directly..
-
-
-## Alternative approach
-There is also an alternative approach, which would be more optimized and efficient, but a lot more complex.
-This would be, to instead of spinning up a tsserver with the @vue/typescript-plugin, let the @vue/typescript-plugin do its processing/handling directly within the extension. And then call the vscode command `typescript.tsserverRequest` with the virtual files of the virtual ts files the @vue/typescript-plugin would have created.
-This would be:
-- Faster
-- More efficient since theres no need to spin up a tsserver 
-- Utilize tsgo which would have performance benefits
-
-But it would also require a way more complex implementation. As the @vue/typescript-plugin which is intended to be used as a typescript-server plugin, would be needed to insread run its processing/handling directly within the extension. Something which would require **a lot** of researching into the docs, source code and potentially some workarounds.
-</intended_design>
-
-<useful_knowledge>
-
-</useful_knowledge>
-<volarjs>
-**important**
-There is a big difference between:
-- @vue/typescript-plugin
-- @vue/language-server
-- @vue/vue-tsc
-
-and the volarjs implementations which are:
-From their repo https://github.com/volarjs/volar.js
-README.md
-```md
-# Volar.js
-
-## Packages
-
-```
-@volar/language-core
-  |
-  |--- @volar/language-service
-        |
-        |--- @volar/language-server
-        |     |
-        |     |--- @volar/vscode (as a client to the language server)
-        |
-        |--- @volar/kit (encapsulates @volar/language-service for Node.js applications)
-        |
-        |--- @volar/monaco (integrates @volar/language-service into Monaco Editor)
-```
-
-### @volar/language-core
-
-This module contains the core language processing functionalities, such as creating and updating virtual code objects. It serves as the foundation for the other modules, providing basic language processing capabilities.
-
-### @volar/language-service
-
-This module provides language service functionalities, such as offering IntelliSense features. It depends on `@volar/language-core` for obtaining and processing virtual code, and then provides corresponding language services.
-
-### @volar/language-server
-
-This module acts as a language server, utilizing the language services provided by `@volar/language-service` and offering these services to clients (like VS Code) through the Language Server Protocol (LSP). It also relies on `@volar/language-core` for handling basic language processing tasks.
-
-### @volar/vscode
-
-This module acts as a Language Server Protocol (LSP) language client. Its primary responsibility is to communicate with the `@volar/language-server` module (acting as an LSP server) and integrate the language services provided by the server into the VS Code editor. This architecture allows for the reuse of language services across different editors and IDEs, with the implementation of the corresponding LSP client. In this case, `@volar/vscode` is the LSP client implementation for VS Code.
-
-### @volar/kit
-
-`@volar/kit` is a module that encapsulates `@volar/language-service`. It provides a simplified interface for using Volar's diagnostic and formatting features within Node.js applications.
-
-### @volar/monaco
-
-This module is an extension of Volar.js for the Monaco Editor. It utilizes the language services provided by `@volar/language-service` and integrates these services into the Monaco Editor. This includes features like syntax highlighting, code completion, and definition jumping. Essentially, `@volar/monaco` serves as a bridge to bring Volar.js's language services into the Monaco Editor.
-```
-
-These packages are **not** the same as what the Volar extension uses.
-It is for using the complete suite of Volar features. And the lsp is **not** a standard lsp, hence needing the @volar/vscode package. 
-
-Implementing this extension using those. Would **be possible** but would be a **alternative** to using the  @vue/* packages.
-This means that **one** of the implementations need to be decided on. Mixing them, or as a example using @vue/language-server+@vue/typescript-plugin+typescript-server and then trying to use @volar/vscode for the client would be **impossible**.
-</volarjs>
-<requirements>
-- The path to the tsserver used to spin up the extensions managed tsserver should be first looking in the workspaces node_modules, and if found, use that. Otherwise use a bundles version of the tsserver. 
-- Same goes for the @vue/language-server. 
-- The extension can if it has standard typescript-server request, ofc send them trough `typescript.tsserverRequest` to the builtin tsgo server in vscode. But that is a edgecase as normally volar would not have pure tsserver requests for a vue sfc file. 
-- THe extension must wowrk so it will actually provide full lsp support for vue. Ie it must also keep the @vue/language-server implementation from the original. volar extension.
-</requirements>
-
+    <data_flow>
+        <flow id="internal_bridge">
+            <description>Handles requests originating from the main Vue Language Server when it needs TypeScript information.</description>
+            <steps>
+                1. `@vue/language-server` sends a `tsserver/request` notification.
+                2. `src/vue-ts-bridge.ts` intercepts the notification.
+                3. The request is forwarded to the `TsserverBridge`.
+                4. The `TsserverBridge` sends the command to the managed `tsserver` process.
+                5. The response is returned to the `@vue/language-server` via a `tsserver/response` notification.
+            </steps>
+        </flow>
+        <flow id="external_bridge">
+            <description>Handles LSP requests originating from the VS Code editor for features like hover, definitions, etc.</description>
+            <steps>
+                1. The LSP Middleware intercepts a standard editor request (e.g., `provideHover`).
+                2. The relevant handler (e.g., `src/middleware/hover.ts`) calls the `TsserverBridge` with a special `_vue:` prefixed command (e.g., `_vue:quickinfo`) to activate the Vue plugin.
+                3. The handler may also call `next()` to get results from the main `@vue/language-server`.
+                4. The results from both sources are merged to provide a complete response to the editor.
+            </steps>
+        </flow>
+    </data_flow>
 </about_project>
+
 
 <code_style>
 <vscode_extension>

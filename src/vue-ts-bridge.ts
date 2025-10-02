@@ -3,7 +3,7 @@
 import lsp from '@volar/vscode/node';
 import type { TsserverBridge } from './tsserver/bridge';
 import * as vscode from 'vscode';
-import { log } from './debug/log';
+import { log, vueLog } from './debug/log';
 
 /**
  * Sets up the RPC bridge for custom commands between the Vue Language Server and the managed TSServer.
@@ -52,5 +52,14 @@ export function registerVueTsserverBridge(
             // Send an error/undefined response back to the Vue server to unblock it.
             await vueLanguageClient.sendNotification('tsserver/response', [args[0], undefined]);
         }
+    });
+    vueLanguageClient.onRequest('textDocument/semanticTokens/full', async (params) => {
+        vueLog(`[onRequest] semanticTokens/full for ${params.textDocument.uri}`);
+        return await vueLanguageClient.sendRequest('textDocument/semanticTokens/full', params);
+    });
+
+    vueLanguageClient.onRequest('textDocument/semanticTokens/range', async (params) => {
+        vueLog(`[onRequest] semanticTokens/range for ${params.textDocument.uri} range: ${JSON.stringify(params.range)}`);
+        return await vueLanguageClient.sendRequest('textDocument/semanticTokens/range', params);
     });
 }
