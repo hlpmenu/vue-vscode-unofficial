@@ -15,13 +15,16 @@ import {
     getVueOutputChannel,
     setup as setupLog,
 } from './src/debug/log';
-
+import { activeateInerpolationDecorators } from './src/features';
 let vueLanguageClient: LanguageClient;
 let tsServerBridge: TsserverBridge;
+const includedLanguages = ['vue', 'typescript', 'javascript', 'typescriptreact', 'javascriptreact', 'vue-html'];
 
 
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
     setupLog(context);
+    activeateInerpolationDecorators(context, includedLanguages);
+    
     console.log('Activating Vue LSP client with TsserverBridge.');
 
     const vueOutputChannel = getVueOutputChannel();
@@ -63,9 +66,12 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
 
     const clientOptions: LanguageClientOptions = {
         middleware,
-        documentSelector: ['vue', 'typescript', 'javascript', 'typescriptreact', 'javascriptreact', 'vue-html', 'Vue'],
+        documentSelector: includedLanguages,
 
-
+        markdown: {
+            isTrusted: true,
+            supportHtml: true,
+        },
         
         outputChannel: vueOutputChannel,
         traceOutputChannel: vueOutputChannel,
@@ -79,6 +85,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
     );
 
     vueLanguageClient.setTrace(Trace.Verbose);
+
 
     registerVueTsserverBridge(vueLanguageClient, tsServerBridge, tsOutputChannel);
 
