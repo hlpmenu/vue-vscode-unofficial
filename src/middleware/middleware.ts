@@ -4,7 +4,7 @@ import { log } from '../debug/log';
 import hoverProvider from './hover';
 import { didOpen } from './did_action';
 import { provideDiagnostics, handleDiagnostics as diagnosticsHandler } from './diagnostics';
-
+import { provideCompletionItem, resolveCompletionItem } from './completions';
 export const createMiddleware = (
     tsServerBridge: TsserverBridge, // oxlint-disable-line
 ): Middleware => {
@@ -42,6 +42,8 @@ export const createMiddleware = (
         didOpen: didOpen,
         provideDiagnostics: provideDiagnostics,
         handleDiagnostics: diagnosticsHandler,
+        provideCompletionItem: provideCompletionItem,
+        resolveCompletionItem: resolveCompletionItem,
     };
     return middleware;
 };

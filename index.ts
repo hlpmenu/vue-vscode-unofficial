@@ -80,6 +80,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
             onSave: true,                   // re-pull on didSave
 
         },
+
         outputChannel: vueOutputChannel,
         traceOutputChannel: vueOutputChannel,
     };
