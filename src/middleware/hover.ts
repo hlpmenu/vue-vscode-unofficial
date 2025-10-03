@@ -45,6 +45,7 @@ const hoverProvider = async (document: vscode.TextDocument, position: vscode.Pos
     }
 
     log(`tsRes: ${JSON.stringify(tsRes, null, 2)}`);
+    
 
     if (tsRes?.displayString) return new vscode.Hover([new vscode.MarkdownString().appendCodeblock(tsRes.displayString, 'ts')]);
 

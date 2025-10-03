@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import type * as lsp from 'vscode-languageclient/node';
 
 import { getBridge, types, asOneBased } from '../tsserver';
+import { log } from '../debug/log';
 
 type CompletionEntryIdentifier = {
     readonly name: string;
@@ -230,8 +231,14 @@ export const provideCompletionItem = async (
     }
 
     const file = document.uri.fsPath;
-    const line = asOneBased(position.line);
-    const offset = asOneBased(position.character);
+    const lastLineIndex = Math.max(document.lineCount - 1, 0);
+    const boundedLineIndex = Math.min(Math.max(position.line, 0), lastLineIndex);
+    const boundedCharacter = Math.min(
+        Math.max(position.character, 0),
+        document.lineAt(boundedLineIndex).text.length,
+    );
+    const line = asOneBased(boundedLineIndex);
+    const offset = asOneBased(boundedCharacter);
 
     const args: types.CompletionsRequestArgs = {
         file,
@@ -240,11 +247,13 @@ export const provideCompletionItem = async (
         triggerKind: toTriggerKind(context.triggerKind),
     };
 
-    if (context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter && context.triggerCharacter) {
+    if (context.triggerCharacter) {
         args.triggerCharacter = context.triggerCharacter as types.CompletionsTriggerCharacter;
     }
 
-    const response = await bridge.request('_vue:completionInfo', args) as types.CompletionInfo | undefined;
+    log('[Middleware.provideCompletionItem.request]', JSON.stringify({ file, line, offset, triggerKind: args.triggerKind, triggerCharacter: args.triggerCharacter, isVue: document.languageId === 'vue' }));
+    const response = await bridge.request('completionInfo', args) as types.CompletionInfo | undefined;
+    log('[Middleware.provideCompletionItem.response]', JSON.stringify({ entries: response?.entries.length ?? 0, isIncomplete: response?.isIncomplete }));
     if (!response || !response.entries.length || token.isCancellationRequested) {
         return base ?? [];
     }
@@ -292,7 +301,7 @@ export const resolveCompletionItem = async (
         entryNames: [data.entry],
     };
 
-    const details = await bridge.request('_vue:completionEntryDetails', args) as readonly types.CompletionEntryDetails[] | undefined;
+    const details = await bridge.request('completionEntryDetails', args) as readonly types.CompletionEntryDetails[] | undefined;
     if (!details?.length || token.isCancellationRequested) {
         return target;
     }

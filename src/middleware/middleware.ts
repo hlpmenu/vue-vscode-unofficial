@@ -17,7 +17,6 @@ export const createMiddleware = (
                 return res;
             });
         },
- 
         provideCodeActions(document, range, context, token, next) {
             log('[Middleware.provideCodeActions.request]', JSON.stringify({ uri: document.uri.toString(), range, context }, null, 2));
             return Promise.resolve(next(document, range, context, token)).then(res => {
