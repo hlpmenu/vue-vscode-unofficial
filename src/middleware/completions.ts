@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import type * as lsp from 'vscode-languageclient/node';
 
 import { getBridge, types, asOneBased } from '../tsserver';
-import { log } from '../debug/log';
+import { log, completionsLog } from '../debug/log';
 
 type CompletionEntryIdentifier = {
     readonly name: string;
@@ -258,9 +258,15 @@ export const provideCompletionItem = async (
         return base ?? [];
     }
 
-    const defaultRange = response.optionalReplacementSpan ? textSpanToRange(response.optionalReplacementSpan) : undefined;
+
+    let defaultRange = response.optionalReplacementSpan ? textSpanToRange(response.optionalReplacementSpan) : undefined;
     const tsItems = response.entries.map((entry: types.CompletionEntry) => buildCompletionItem(entry, { file, line, offset, defaultRange }));
 
+    if (response.isMemberCompletion && !response.optionalReplacementSpan && !defaultRange) {
+        const pos = new vscode.Position(boundedLineIndex, boundedCharacter);
+        defaultRange = new vscode.Range(pos, pos);
+    }
+    
     return mergeCompletionResults(base, tsItems, Boolean(response.isIncomplete));
 };
 

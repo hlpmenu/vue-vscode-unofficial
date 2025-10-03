@@ -81,9 +81,6 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
 
         },
         initializationOptions: {
-            // By defining this, we are instructing the @vue/language-server
-            // to announce that it supports completions and to use these
-            // specific characters to trigger them.
             completion: {
                 triggerCharacters: [
                     '.',

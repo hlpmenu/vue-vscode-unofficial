@@ -4,12 +4,14 @@ import type { ExtensionContext } from 'vscode';
 let vueDebugChannel: vscode.OutputChannel | undefined;
 let vueLanguageChannel: vscode.OutputChannel | undefined;
 let tsLanguageChannel: vscode.OutputChannel | undefined;
+let completionsDebugChannel: vscode.OutputChannel | undefined;
 
 const setup = (ctx: ExtensionContext) => {
     vueDebugChannel = vscode.window.createOutputChannel('Vue Debug');
     vueLanguageChannel = vscode.window.createOutputChannel('Vue Language Server');
     tsLanguageChannel = vscode.window.createOutputChannel('Vue TypeScript Server');
-    ctx.subscriptions.push(vueDebugChannel, vueLanguageChannel, tsLanguageChannel);
+    completionsDebugChannel = vscode.window.createOutputChannel('Vue Completions Server');
+    ctx.subscriptions.push(vueDebugChannel, vueLanguageChannel, tsLanguageChannel, completionsDebugChannel);
 };
 
 const log = (...args: any[]) => { // oxlint-disable-line
@@ -38,12 +40,17 @@ const getTsOutputChannel = (): vscode.OutputChannel => {
     return tsLanguageChannel;
 };
 
+const completionsLog = (...args: any[]) => { // oxlint-disable-line
+    completionsDebugChannel?.appendLine(args.join(' '));
+};
+
 export {
     setup,
     vueDebugChannel,
     log,
     vueLog,
     tsLog,
+    completionsLog,
     getVueOutputChannel,
     getTsOutputChannel,
 };
