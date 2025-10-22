@@ -1,8 +1,4 @@
-/**
- * @license
- * Copyright HLMPN AB
- * SPDX-License-Identifier: Apache-2.0
- */
+
 
 import { mkdir, rm } from 'node:fs/promises';
 import { $ } from 'bun';
