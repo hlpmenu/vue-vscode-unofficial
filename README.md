@@ -18,7 +18,7 @@ Since this extension is **less** efficient than Volar, use Volar unless you are 
 
 ## Installation
 
-[Install from the Visual Studio Code Marketplace (https://marketplace.visualstudio.com/items?itemName=hlmpn.vue-vscode-unofficial)]()
+[Install from the Visual Studio Code Marketplace ()](https://marketplace.visualstudio.com/items?itemName=hlmpn.vue-vscode-unofficial)
 
 ## Roadmap
 
