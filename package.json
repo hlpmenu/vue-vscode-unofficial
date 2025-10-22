@@ -1,6 +1,6 @@
 {
-  "name": "volar-vue-native",
-  "displayName": "Volar for Vue (Native TS)",
+  "name": "vue-vscode-unofficial",
+  "displayName": "Volar for Vue (For Tsgo Native TS)",
   "description": "Vue language support using the native TypeScript server (tsgo).",
   "version": "0.0.1",
   "publisher": "hlmpn",
