@@ -18,7 +18,7 @@ import {
 import { activeateInerpolationDecorators } from './src/features';
 let vueLanguageClient: LanguageClient;
 let tsServerBridge: TsserverBridge;
-const includedLanguages = ['vue', 'typescript', 'javascript', 'typescriptreact', 'javascriptreact', 'vue-html'];
+const includedLanguages = ['vue', 'javascript', 'typescriptreact', 'javascriptreact', 'vue-html'];
 
 
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {

@@ -23,35 +23,67 @@ import { getBridge, types, asOneBased } from '../tsserver';
  * @returns Promise resolving to hover content from the downstream provider or the Vue bridge, or null when nothing is available.
  */
 const hoverProvider = async (document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, next: lsp.ProvideHoverSignature) => {
+    const emptyResult: vscode.Hover = new vscode.Hover([]);
+    if (token?.isCancellationRequested) return emptyResult;
+
     log('[Middleware.provideHover.request]', JSON.stringify({ uri: document.uri.toString(), position }, null, 2));
     const res = await next(document, position, token);
     log('[Middleware.provideHover.result]', JSON.stringify(res, null, 2));
-    const result: string[] = []
     if (res) return res;
             
 
     const args: types.QuickInfoRequestArgs = {
-        verbosityLevel: 4,
+        verbosityLevel: 3,
         file: document.uri.fsPath,         // absolute path
         line: asOneBased(position.line),           // 1-based
         offset: asOneBased(position.character)     // 1-based
     };
-
-
 
     const tsRes = await getBridge()?.request('_vue:quickinfo', args) as types.QuickInfoResponseBody | undefined;
     if (typeof tsRes === 'undefined') {
         return null;
     }
 
+   
+
     log(`tsRes: ${JSON.stringify(tsRes, null, 2)}`);
     
 
-    if (tsRes?.displayString) return new vscode.Hover([new vscode.MarkdownString().appendCodeblock(tsRes.displayString, 'ts')]);
+    if (tsRes?.displayString) {
+        const md = new vscode.MarkdownString().appendCodeblock(tsRes.displayString, 'ts');
+
+        // --- Documentation ---
+        switch (true) {
+            case typeof tsRes?.documentation === 'string':
+                md.appendMarkdown('\n\n' + tsRes.documentation);
+                break;
+
+            case Array.isArray(tsRes?.documentation):
+                // Concatenate text parts; SymbolDisplayPart.text already contains its own spacing.
+                md.appendMarkdown('\n\n' + tsRes.documentation.map((p: types.SymbolDisplayPart) => p.text).join(''));
+                break;
+        }
+
+        // --- JSDoc tags ---
+        if (tsRes?.tags) {
+            for (const tag of tsRes.tags) {
+                if (!tag.text) continue;
+
+                md.appendMarkdown(`\n\n*@${tag.name}*`);
+
+                // tag.text is already a plain string when displayPartsForJSDoc is false
+                md.appendMarkdown(' ' + tag.text);
+            }
+        }
+
+
+        md.isTrusted = true;
+        return new vscode.Hover([md]);
+    }
 
 
     log('[Middleware.provideHover.tsResult]', JSON.stringify(tsRes, null, 2));
-    return new vscode.Hover(result)
+    return emptyResult;
 }
 
 

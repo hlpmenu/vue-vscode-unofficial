@@ -2,9 +2,9 @@ import type { Middleware } from 'vscode-languageclient/node';
 import type { TsserverBridge } from '../tsserver/bridge';
 import { log } from '../debug/log';
 import hoverProvider from './hover';
-import { didOpen } from './did_action';
 import { provideDiagnostics, handleDiagnostics as diagnosticsHandler } from './diagnostics';
 import { provideCompletionItem, resolveCompletionItem } from './completions';
+import { didOpen, didChange } from './did_action';
 export const createMiddleware = (
     tsServerBridge: TsserverBridge, // oxlint-disable-line
 ): Middleware => {
@@ -39,6 +39,7 @@ export const createMiddleware = (
             });
         },
         didOpen: didOpen,
+        didChange: didChange,
         provideDiagnostics: provideDiagnostics,
         handleDiagnostics: diagnosticsHandler,
         provideCompletionItem: provideCompletionItem,

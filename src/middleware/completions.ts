@@ -221,12 +221,24 @@ export const provideCompletionItem = async (
     next: lsp.ProvideCompletionItemsSignature,
 ): Promise<vscode.CompletionItem[] | vscode.CompletionList> => {
     const base = await next(document, position, context, token);
+    completionsLog('[Middleware.provideCompletionItem.base]', JSON.stringify({
+        type: base instanceof vscode.CompletionList ? 'CompletionList' : Array.isArray(base) ? 'Array' : typeof base,
+        length: base instanceof vscode.CompletionList ? base.items.length : Array.isArray(base) ? base.length : undefined,
+        isIncomplete: base instanceof vscode.CompletionList ? base.isIncomplete : undefined,
+    }));
     if (token.isCancellationRequested) {
+        completionsLog('[Middleware.provideCompletionItem.cancelledBeforeBridge]', JSON.stringify({ reason: 'tokenCancelledBeforeBridge' }));
+        return base ?? [];
+    }
+    if (context.triggerKind === vscode.CompletionTriggerKind.Invoke) {
         return base ?? [];
     }
 
     const bridge = getBridge();
     if (!bridge) {
+        completionsLog('[Middleware.provideCompletionItem.missingBridge]', JSON.stringify({
+            documentUri: document.uri.fsPath,
+        }));
         return base ?? [];
     }
 
@@ -240,6 +252,18 @@ export const provideCompletionItem = async (
     const line = asOneBased(boundedLineIndex);
     const offset = asOneBased(boundedCharacter);
 
+    completionsLog('[Middleware.provideCompletionItem.input]', JSON.stringify({
+        documentUri: file,
+        languageId: document.languageId,
+        version: document.version,
+        originalPosition: { line: position.line, character: position.character },
+        boundedPosition: { line: boundedLineIndex, character: boundedCharacter },
+        context: {
+            triggerKind: context.triggerKind,
+            triggerCharacter: context.triggerCharacter,
+        },
+    }));
+
     const args: types.CompletionsRequestArgs = {
         file,
         line,
@@ -251,23 +275,63 @@ export const provideCompletionItem = async (
         args.triggerCharacter = context.triggerCharacter as types.CompletionsTriggerCharacter;
     }
 
+    completionsLog('[Middleware.provideCompletionItem.tsserverRequestArgs]', JSON.stringify(args));
+
     log('[Middleware.provideCompletionItem.request]', JSON.stringify({ file, line, offset, triggerKind: args.triggerKind, triggerCharacter: args.triggerCharacter, isVue: document.languageId === 'vue' }));
+    completionsLog('[Middleware.provideCompletionItem.request]', JSON.stringify({ file, line, offset, triggerKind: args.triggerKind, triggerCharacter: args.triggerCharacter, isVue: document.languageId === 'vue' }));
     const response = await bridge.request('completionInfo', args) as types.CompletionInfo | undefined;
+    completionsLog('[Middleware.provideCompletionItem.tsserverResponse.raw]', JSON.stringify(response ?? null));
     log('[Middleware.provideCompletionItem.response]', JSON.stringify({ entries: response?.entries.length ?? 0, isIncomplete: response?.isIncomplete }));
+    completionsLog('[Middleware.provideCompletionItem.response]', JSON.stringify({ entries: response?.entries.length ?? 0, isIncomplete: response?.isIncomplete }));
     if (!response || !response.entries.length || token.isCancellationRequested) {
+        completionsLog('[Middleware.provideCompletionItem.earlyExit]', JSON.stringify({
+            hasResponse: Boolean(response),
+            entryCount: response?.entries.length ?? 0,
+            cancelled: token.isCancellationRequested,
+        }));
         return base ?? [];
     }
 
 
     let defaultRange = response.optionalReplacementSpan ? textSpanToRange(response.optionalReplacementSpan) : undefined;
+    completionsLog('[Middleware.provideCompletionItem.defaultRange.initial]', JSON.stringify(defaultRange ? {
+        start: { line: defaultRange.start.line, character: defaultRange.start.character },
+        end: { line: defaultRange.end.line, character: defaultRange.end.character },
+    } : null));
     const tsItems = response.entries.map((entry: types.CompletionEntry) => buildCompletionItem(entry, { file, line, offset, defaultRange }));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    completionsLog('[Middleware.provideCompletionItem.tsItems]', JSON.stringify(tsItems.map((item: vscode.CompletionItem) => ({
+        label: typeof item.label === 'string' ? item.label : item.label?.label ?? '',
+        kind: item.kind,
+        hasSortText: Boolean(item.sortText),
+        hasFilterText: Boolean(item.filterText),
+        hasInsertText: Boolean(item.insertText),
+        hasRange: Boolean(item.range),
+    }))));
 
     if (response.isMemberCompletion && !response.optionalReplacementSpan && !defaultRange) {
         const pos = new vscode.Position(boundedLineIndex, boundedCharacter);
         defaultRange = new vscode.Range(pos, pos);
+        completionsLog('[Middleware.provideCompletionItem.defaultRange.memberFallback]', JSON.stringify({
+            start: { line: defaultRange.start.line, character: defaultRange.start.character },
+            end: { line: defaultRange.end.line, character: defaultRange.end.character },
+        }));
     }
-    
-    return mergeCompletionResults(base, tsItems, Boolean(response.isIncomplete));
+
+    const result = mergeCompletionResults(base, tsItems, Boolean(response.isIncomplete));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    completionsLog('[Middleware.provideCompletionItem.result]', JSON.stringify(result instanceof vscode.CompletionList ? {
+        type: 'CompletionList',
+        length: result.items.length,
+        isIncomplete: result.isIncomplete,
+    } : Array.isArray(result) ? {
+        type: 'Array',
+        length: result.length,
+    } : {
+        type: typeof result,
+    }));
+
+    return result;
 };
 
 /**
@@ -285,18 +349,23 @@ export const resolveCompletionItem = async (
 ): Promise<vscode.CompletionItem> => {
     const base = await next(item, token);
     const target = base ?? item;
+    completionsLog('[Middleware.resolveCompletionItem.base]', JSON.stringify({ hasBase: Boolean(base) }));
 
     if (token.isCancellationRequested) {
+        completionsLog('[Middleware.resolveCompletionItem.cancelledBeforeData]', JSON.stringify({ reason: 'tokenCancelledBeforeData' }));
         return target;
     }
 
     const data = completionDataStore.get(target) ?? completionDataStore.get(item);
     if (!isTsCompletionData(data)) {
+        const provider = data && typeof data === 'object' ? (data as { provider?: unknown }).provider ?? null : null;
+        completionsLog('[Middleware.resolveCompletionItem.noTsData]', JSON.stringify({ hasData: Boolean(data), provider }));
         return target;
     }
 
     const bridge = getBridge();
     if (!bridge) {
+        completionsLog('[Middleware.resolveCompletionItem.missingBridge]', JSON.stringify({ file: data.file }));
         return target;
     }
 
@@ -307,12 +376,24 @@ export const resolveCompletionItem = async (
         entryNames: [data.entry],
     };
 
+    completionsLog('[Middleware.resolveCompletionItem.tsserverRequestArgs]', JSON.stringify(args));
+
     const details = await bridge.request('completionEntryDetails', args) as readonly types.CompletionEntryDetails[] | undefined;
+    completionsLog('[Middleware.resolveCompletionItem.tsserverResponse.raw]', JSON.stringify(details ?? null));
     if (!details?.length || token.isCancellationRequested) {
+        completionsLog('[Middleware.resolveCompletionItem.earlyExit]', JSON.stringify({
+            hasDetails: Boolean(details?.length),
+            cancelled: token.isCancellationRequested,
+        }));
         return target;
     }
 
     const [detail] = details;
+    completionsLog('[Middleware.resolveCompletionItem.detailSummary]', JSON.stringify({
+        displayPartsLength: detail.displayParts?.length ?? 0,
+        documentationLength: detail.documentation?.length ?? 0,
+        codeActionsLength: detail.codeActions?.length ?? 0,
+    }));
     const description = partsToString(detail.displayParts);
     if (description && !target.detail) {
         target.detail = description;
@@ -324,9 +405,18 @@ export const resolveCompletionItem = async (
     }
 
     const additionalEdits = extractAdditionalTextEdits(details, data.file);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    completionsLog('[Middleware.resolveCompletionItem.additionalEdits]', JSON.stringify({ count: additionalEdits.length }));
     if (additionalEdits.length) {
         target.additionalTextEdits = [...(target.additionalTextEdits ?? []), ...additionalEdits];
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    completionsLog('[Middleware.resolveCompletionItem.result]', JSON.stringify({
+        hasDetail: Boolean(target.detail),
+        hasDocumentation: Boolean(target.documentation),
+        additionalEditsCount: target.additionalTextEdits?.length ?? 0,
+    }));
 
     return target;
 };

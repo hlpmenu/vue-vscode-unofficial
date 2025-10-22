@@ -22,9 +22,7 @@
     "lint:single": "bunx --bun oxlint --type-aware --max-warnings 0 --deny-warnings",
     "format": "bunx --bun biome format -w ."
   },
-  "activationEvents": [
-    "onLanguage"
-  ],
+
   "main": "./dist/extension.js",
   "files": [
     "dist/extension.js",
