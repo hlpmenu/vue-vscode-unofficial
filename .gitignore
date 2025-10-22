@@ -1,6 +1,5 @@
 *.vsix
 dist/
-lib/
 
 tmp/
 ref/
@@ -10,3 +9,4 @@ GEMINI.md
 language-tools/
 .worktrees/
 language-tools
+NOTICES.txt
