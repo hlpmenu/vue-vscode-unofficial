@@ -14,6 +14,7 @@ Since this extension is **less** efficient than Volar, use Volar unless you are 
 ## Todo
 - Add proper settings for logging
 - Cleanup logging
+- Add workflow to autorelease on tag
 
 ## Installation
 
