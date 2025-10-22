@@ -3,7 +3,7 @@
   "displayName": "(Unofficial) Vue language support(Tsgo preview compatible)",
   "description": "Vue language support compatible with the native(tsgo) preview extension.",
   "version": "0.0.1",
-  "publisher": "hlpmenu",
+  "publisher": "hlmpn",
   "private": true,
   "type": "commonjs",
   "repository": {
