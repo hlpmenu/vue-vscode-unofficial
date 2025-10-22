@@ -1,11 +1,20 @@
 {
   "name": "vue-vscode-unofficial",
-  "displayName": "Volar for Vue (For Tsgo Native TS)",
-  "description": "Vue language support using the native TypeScript server (tsgo).",
+  "displayName": "(Unofficial) Vue language support(Tsgo preview compatible)",
+  "description": "Vue language support compatible with the native(tsgo) preview extension.",
   "version": "0.0.1",
-  "publisher": "hlmpn",
+  "publisher": "hlpmenu",
   "private": true,
   "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hlpmenu/vue-vscode-unofficial.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hlpmenu/vue-vscode-unofficial/issues"
+  },
+  "homepage": "https://github.com/hlpmenu/vue-vscode-unofficial#readme",
+
   "engines": {
     "vscode": "^1.99.0"
   },
@@ -13,14 +22,15 @@
     "build": "bun run bundle",
     "watch": "bun scripts/build.ts --watch",
     "bundle": "bun scripts/build.ts",
-    "package": "bunx --node vsce package",
+    "package": "bun run generate:notices && bunx --node vsce package",
     "check": "bun scripts/check.ts",
     "test:tsserver": "cd test/tslsp2 && go run main.go",
     "generate:deps": "go run scripts/create_deps.go",
     "typecheck": "bun scripts/typecheck.ts",
     "lint": "bunx --bun oxlint --type-aware --max-warnings 0 --deny-warnings .",
     "lint:single": "bunx --bun oxlint --type-aware --max-warnings 0 --deny-warnings",
-    "format": "bunx --bun biome format -w ."
+    "format": "bunx --bun biome format -w .",
+    "generate:notices": "bunx license-checker --production --out NOTICES.txt"
   },
   "main": "./dist/extension.js",
   "files": [

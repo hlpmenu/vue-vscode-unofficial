@@ -10,6 +10,10 @@
     },
     "biome.enabled": false,
     "npm.packageManager": "bun",
+    "npm.scriptRunner": "bun",
     "typescript.experimental.useTsgo": true,
     "typescript.tsserver.useSyntaxServer": "never",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
 }

@@ -39,36 +39,36 @@ try {
     process.exit(1);
   }
 
-  const vueLspResult = await Bun.build({
-    entrypoints: ['src/vue-lsp.ts'],
-    format: 'cjs',
-    target: 'node',
-    outdir: 'dist',
-    packages: 'bundle',
-    naming: {
-      entry: 'vue-lsp.js',
-      asset: '[name]-[hash].[ext]',
-    },
-    minify: production,
-    sourcemap: production ? 'none' : 'external',
-  });
+  // const vueLspResult = await Bun.build({
+  //   entrypoints: ['src/vue-lsp.ts'],
+  //   format: 'cjs',
+  //   target: 'node',
+  //   outdir: 'dist',
+  //   packages: 'bundle',
+  //   naming: {
+  //     entry: 'vue-lsp.js',
+  //     asset: '[name]-[hash].[ext]',
+  //   },
+  //   minify: production,
+  //   sourcemap: production ? 'none' : 'external',
+  // });
 
-  if (!vueLspResult.success) {
-    console.error('Vue language server build failed:');
-    for (const message of vueLspResult.logs) {
-      console.error(message);
-    }
-    process.exit(1);
-  }
+  // if (!vueLspResult.success) {
+  //   console.error('Vue language server build failed:');
+  //   for (const message of vueLspResult.logs) {
+  //     console.error(message);
+  //   }
+  //   process.exit(1);
+  // }
 
   // Ensure dist/node_modules contains runtime deps for shims
   try {
- const genDepsRes = await $`bun run generate:deps`.env(process.env).quiet();
-  if (genDepsRes.exitCode !== 0) {
-    console.error(genDepsRes.stderr);
-    process.exit(1);
-  }
-  Bun.stdout.write("--- Dependencies generated successfully! ---\n");
+    const genDepsRes = await $`bun run generate:deps`.env(process.env).quiet();
+    if (genDepsRes.exitCode !== 0) {
+      console.error(genDepsRes.stderr);
+      process.exit(1);
+    }
+    Bun.stdout.write("--- Dependencies generated successfully! ---\n");
   } catch (e) {
     if (e instanceof $.ShellError) {
       console.error(e.stderr);

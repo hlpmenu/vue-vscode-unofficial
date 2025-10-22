@@ -13,7 +13,7 @@ export interface TsserverOptions {
 }
 
 const TYPINGS_INSTALLER_FILENAME = 'typingsInstaller.js';
-const logFilePath = '/tmp/tsserver.log';
+//const logFilePath = '/tmp/tsserver.log';
 
 export const resolveTsserverOptions = (
 	pluginName: string,
@@ -209,9 +209,9 @@ export class TsserverBridge implements vscode.Disposable {
 				'--locale',
 				vscode.env.language,
 				'--logVerbosity',
-				'verbose',
-				'--logFile',
-				logFilePath,
+				'normal',
+				//		'--logFile',
+				//		logFilePath,
 			];
 			if (this.options.typingsInstallerPath) {
 				args.push('--typingsInstaller', this.options.typingsInstallerPath);

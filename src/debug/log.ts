@@ -15,6 +15,9 @@ const setup = (ctx: ExtensionContext) => {
 };
 
 const log = (...args: any[]) => { // oxlint-disable-line
+    if (process?.env?.VUE_LSP_DEBUG !== "1") {
+        return;
+    }
     vueDebugChannel?.appendLine(args.join(' '));
 };
 
