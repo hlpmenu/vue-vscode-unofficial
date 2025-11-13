@@ -307,7 +307,7 @@
     "@types/bun": "^1.2.22",
     "@types/vscode": "1.99.0",
     "@typescript/native-preview": "^7.0.0-dev.20250924.1",
-    "@vscode/vsce": "^3.6.2",
+    "@vscode/vsce": "^3.7.0",
     "esbuild": "^0.25.8",
     "oxlint": "^1.18.0",
     "oxlint-tsgolint": "^0.2.0"

@@ -13,6 +13,7 @@ import { registerVueTsserverBridge } from './src/vue-ts-bridge';
 import {
     getTsOutputChannel,
     getVueOutputChannel,
+    log,
     setup as setupLog,
 } from './src/debug/log';
 import { activeateInerpolationDecorators } from './src/features';
@@ -34,10 +35,11 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
     const tsServerPath = path.join(tsPath, 'tsserver.js');
     //   const tsDkPath = path.join(tsPath, 'typescriptServices.js');
     const vueServerModulePath = context.asAbsolutePath(
-        path.join('node_modules', '@vue', 'language-server', 'bin', 'vue-language-server.js'),
+        path.join('dist', 'node_modules', '@vue', 'language-server', 'bin', 'vue-language-server.js'),
     );
+    log(`vueServerModulePath: ${vueServerModulePath}`);
     const vuePluginModulePath = path.dirname(
-        require.resolve('@vue/typescript-plugin/package.json', { paths: [context.extensionPath] }),
+        require.resolve('@vue/typescript-plugin/package.json', { paths: [path.join(context.extensionPath, 'dist')] }),
     );
 
     const tsserverOptions: TsserverOptions = {

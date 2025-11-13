@@ -10,3 +10,4 @@ language-tools/
 .worktrees/
 language-tools
 NOTICES.txt
+*.vsix  

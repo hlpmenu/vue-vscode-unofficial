@@ -11,7 +11,11 @@
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"
             ],
-            "preLaunchTask": "build"
+            "preLaunchTask": "build",
+            "env": {
+                "VUE_LSP_DEBUG": "1"
+            }
+
         },
         {
             "name": "Extension Tests",
@@ -24,7 +28,11 @@
             "outFiles": [
                 "${workspaceFolder}/out/test/**/*.js"
             ],
-            "preLaunchTask": "npm: build"
+            "preLaunchTask": "npm: build",
+            "env": {
+                "VUE_LSP_DEBUG": "1"
+            }
+
         }
     ]
 }

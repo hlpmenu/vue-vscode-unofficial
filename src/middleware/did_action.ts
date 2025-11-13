@@ -10,6 +10,7 @@ export const didOpen = async (
     if (document.languageId !== 'vue') {
         return next(document);
     }
+    return next(document);
 
     const file = document.uri.fsPath;
 
