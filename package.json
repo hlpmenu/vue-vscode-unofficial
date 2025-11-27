@@ -2,7 +2,7 @@
   "name": "vue-vscode-unofficial",
   "displayName": "(Unofficial) Vue language support(Tsgo preview compatible)",
   "description": "Vue language support compatible with the native(tsgo) preview extension.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "hlmpn",
   "private": true,
   "type": "commonjs",
@@ -293,6 +293,7 @@
     ]
   },
   "dependencies": {
+    "@iconify/vue": "^5.0.0",
     "@volar/vscode": "^2.4.23",
     "@vue/language-server": "^3.0.8",
     "@vue/language-service": "^3.1.1",
