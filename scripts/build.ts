@@ -1,7 +1,6 @@
-
-
 import { mkdir, rm } from 'node:fs/promises';
 import { $ } from 'bun';
+
 const production = process.argv.includes('--production');
 
 console.log(`Running build in ${production ? 'production' : 'development'} mode...`);

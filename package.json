@@ -254,7 +254,7 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "Volar for Vue (Native TS)",
+      "title": "(Unofficial) Vue language support",
       "properties": {
         "vue.trace.server": {
           "scope": "window",
@@ -287,8 +287,8 @@
     "commands": [
       {
         "command": "vue.action.restartServer",
-        "title": "Restart Vue Language Server",
-        "category": "Volar"
+        "title": "Restart Vue LSP",
+        "category": "Vue"
       }
     ]
   },

@@ -11,3 +11,4 @@ language-tools/
 language-tools
 NOTICES.txt
 *.vsix  
+plugin-shim/

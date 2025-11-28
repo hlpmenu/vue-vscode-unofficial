@@ -1,4 +1,5 @@
-# Volar for Vue (For use with Tsgo Native Preview)
+# (Unofficial) Vue language support(For use with Tsgo Native Preview)
+**NOTE: Package was out of sync on vscode marketplace, and a broken version was published, fixed now.** 
 
 ## Description
 
